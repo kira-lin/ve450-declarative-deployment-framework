@@ -24,8 +24,6 @@ RUN pip install -U setuptools && \
     pip install cryptography && \
     pip install psycopg2-binary==2.7.4
 
-COPY apache-airflow-1.10.0.tar.gz /tmp/
+COPY airflow.tar.gz /tmp/
 
-RUN pip install /tmp/apache-airflow-1.10.0.tar.gz
-
-
+RUN pip install /tmp/airflow.tar.gz

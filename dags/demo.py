@@ -48,5 +48,7 @@ serve = '''tensorflow_model_server --port=8500 --rest_api_port=8501 \
 
 t2 = BashOperator(
     task_id="serve_model", bash_command=serve, dag=dag,
-    executor_config={"KubernetesExecutor": {"image": "tfserving:airflow"}
+    executor_config={"KubernetesExecutor": {"image": "tfserving:airflow"}}
 )
+
+t1.set_downstream(t2)
