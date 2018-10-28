@@ -19,7 +19,9 @@
 from __future__ import print_function
 import airflow
 from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python_operator import BranchPythonOperator
 from airflow.operators.bash_operator import BashOperator
+from airflow.operators.dummy_operator import DummyOperator
 from airflow.models import DAG
 import os
 
@@ -43,12 +45,29 @@ t1 = PythonOperator(
     executor_config={"KubernetesExecutor": {"image": "tensorflow:airflow"}}
 )
 
-serve = '''tensorflow_model_server --port=8500 --rest_api_port=8501 \
-  --model_name=MnistModel --model_base_path=/root/airflow/runtime/models/MnistModel'''
+model_name = 'MnistModel'
+
+serve = 'tensorflow_model_server --port=8500 --rest_api_port=8501 --model_name={} \
+ --model_base_path=/root/airflow/runtime/models/{}'.format(model_name, model_name)
+
+def model_exist():
+    if os.path.isdir('/root/airflow/runtime/{}'.format(model_name)):
+        return 'update_version_or_not_serve'
+    else:
+        return 'serve_model'
+
+
+branch = BranchPythonOperator(
+    task_id="serve_or_not", python_callable=model_exist, dag=dag
+)
 
 t2 = BashOperator(
     task_id="serve_model", bash_command=serve, dag=dag,
     executor_config={"KubernetesExecutor": {"image": "tfserving:airflow"}}
 )
 
-t1.set_downstream(t2)
+t3 = DummyOperator(
+    task_id="update_version_or_not_serve", dag=dag
+)
+
+t1.set_downstream(branch)

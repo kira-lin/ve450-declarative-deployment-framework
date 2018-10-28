@@ -1,16 +1,4 @@
-owner: airflow
-start_date: airflow.utils.dates.days_ago(2)
-dag-id: demo-parser
-schedule-interval: none
-tasks:
-  start_task:
-    operator: bash
-    executor_config:
-      limit_memory: 128Mi
-    bash_command: "echo 1"
-  run_script:
-    operator: python
-    executor_config:
-      image: tensorflow:airflow
-    script: mnist.py
-    upstream: start_task
+model: MnistModel
+version: 1.0
+http_port: 8051
+grpc_port: 8050
