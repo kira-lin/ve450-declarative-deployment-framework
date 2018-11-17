@@ -14,6 +14,7 @@
 * Version 1.10
 * changed flask-appbuilder from <2.0.0 to <1.12.0 due to compatibility
 * modified Kubernetes executor a little to mount runtime directory in worker
+* airflow-www directory contains the UI of airflow, a file upload field is added to the homepage. To use/develop it, please clone airflow-1-10.0 and replace the www folder with airflow-www, then run `python setup.py sdist -q` to make the archive. Finally run `pip install ` that tarball in your venv to install airflow.
 
 ### Guides
 The project is still in development
