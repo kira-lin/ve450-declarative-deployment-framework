@@ -70,4 +70,6 @@ t3 = DummyOperator(
     task_id="update_version_or_not_serve", dag=dag
 )
 
-t1.set_downstream(branch)
+t1.set_upstream(branch)
+branch.set_upstream(t2)
+branch.set_upstream(t3)

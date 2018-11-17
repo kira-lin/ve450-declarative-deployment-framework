@@ -4,7 +4,8 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.operators.bash_operator import BashOperator
 
 
-def run(script):
+def run(script):	
+
     execFile('/root/airflow/runtime/{}'.format(script))
 
 
