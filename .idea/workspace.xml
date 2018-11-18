@@ -1,110 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="640aeb54-3e3c-4063-9972-2cf524f88d63" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/JOBCONFIG.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/JOBCONFIG.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-container/airflow.tar.gz" beforeDir="false" afterPath="$PROJECT_DIR$/airflow-container/airflow.tar.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-container/build.sh" beforeDir="false" afterPath="$PROJECT_DIR$/airflow-container/build.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/api/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/api/experimental/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/api/experimental/endpoints.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/app.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/blueprints.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/forms.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/gunicorn_config.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/ace.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/airflow.gif" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/bootstrap-theme.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/bootstrap-toggle.min.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/bootstrap-toggle.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/bootstrap3-typeahead.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/connection_form.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/d3.tip.v0.6.3.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/d3.v3.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/dagre-d3.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/dagre-d3.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/dagre.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/dataTables.bootstrap.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/docs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/favicon.ico" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/gantt-chart-d3v2.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/gantt.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/graph.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/jqClock.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/jquery.dataTables.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/jquery.dataTables.min.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/loading.gif" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/main.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/mode-sql.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/nv.d3.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/nv.d3.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/para/parallel.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/para/parallel.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/para/webgl-2d.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin.svg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin_100.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin_100.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin_25.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin_30.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin_35.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin_40.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin_large.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/pin_large.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/screenshots/gantt.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/screenshots/graph.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/screenshots/tree.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/sort_asc.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/sort_both.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/sort_desc.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/theme-crimson_editor.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/tree.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/static/underscore.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/admin/master.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/chart.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/chart/create.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/chart/edit.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/circles.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/code.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/config.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/confirm.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/conn_create.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/conn_edit.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/conn_list.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/dag.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/dag_code.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/dag_details.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/dags.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/duration_chart.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/gantt.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/graph.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/list_dags.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/login.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/master.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/model_create.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/model_edit.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/model_list.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/modelchart.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/noaccess.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/nvd3.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/para/para.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/query.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/task.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/task_instance.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/ti_code.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/ti_log.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/traceback.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/tree.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/variable_list.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/variables/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/version.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/templates/airflow/xcom.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/utils.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/validators.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/airflow-www/views.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dags/demo.py" beforeDir="false" afterPath="$PROJECT_DIR$/dag_templates/tensorflow.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dags/demo.yaml" beforeDir="false" />
-    </list>
+    <list default="true" id="640aeb54-3e3c-4063-9972-2cf524f88d63" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -1665,13 +1562,6 @@
               <item name="ve450-declarative-deployment-framework" type="462c0819:PsiDirectoryNode" />
               <item name="airflow" type="462c0819:PsiDirectoryNode" />
               <item name="airflow" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="ve450-declarative-deployment-framework" type="b2602c69:ProjectViewProjectNode" />
-              <item name="ve450-declarative-deployment-framework" type="462c0819:PsiDirectoryNode" />
-              <item name="airflow" type="462c0819:PsiDirectoryNode" />
-              <item name="airflow" type="462c0819:PsiDirectoryNode" />
-              <item name="www" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="ve450-declarative-deployment-framework" type="b2602c69:ProjectViewProjectNode" />
