@@ -1,4 +1,0 @@
-model: MnistModel
-version: 1.0
-http_port: 8051
-grpc_port: 8050

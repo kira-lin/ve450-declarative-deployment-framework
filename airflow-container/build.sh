@@ -19,20 +19,21 @@
 
 IMAGE=${1:-airflow}
 TAG=${2:-latest}
-#DIRNAME=$(cd "$(dirname "$0")"; pwd)
-#AIRFLOW_ROOT="$DIRNAME/../../../.."
+DIRNAME=$(cd "$(dirname "$0")"; pwd)
+AIRFLOW_ROOT="$DIRNAME/../airflow/"
 
-#ENVCONFIG=$(minikube docker-env)
-#if [ $? -eq 0 ]; then
-#  eval $ENVCONFIG
-#fi
+ENVCONFIG=$(minikube docker-env)
+if [ $? -eq 0 ]; then
+  eval $ENVCONFIG
+fi
 
-#echo "Airflow directory $AIRFLOW_ROOT"
-#echo "Airflow Docker directory $DIRNAME"
+echo "Airflow directory $AIRFLOW_ROOT"
+echo "Airflow Docker directory $DIRNAME"
 
-#cd $AIRFLOW_ROOT
-#python3 setup.py sdist -q
-#echo "Copy distro $AIRFLOW_ROOT/dist/*.tar.gz ${DIRNAME}/airflow.tar.gz"
-#cp $AIRFLOW_ROOT/dist/*.tar.gz ${DIRNAME}/airflow.tar.gz
+cd $AIRFLOW_ROOT
+python setup.py sdist -q
+echo "Copy distro $AIRFLOW_ROOT/dist/*.tar.gz ${DIRNAME}/airflow.tar.gz"
+cp $AIRFLOW_ROOT/dist/*.tar.gz ${DIRNAME}/airflow.tar.gz
+echo "Start building docker image"
 docker build --pull . --tag=${IMAGE}:${TAG}
-#rm $DIRNAME/airflow.tar.gz
+rm $DIRNAME/airflow.tar.gz

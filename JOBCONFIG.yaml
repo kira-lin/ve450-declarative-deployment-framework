@@ -1,10 +1,6 @@
-#type: dl
-#container: dl
-serve: True
-server:
-  grpc:8500
-  rest:8501
-
+ID: demo_yaml_parser
+owner: airflow
+type: tensorflow
 job-config:
   data:
     placeholder:
@@ -35,3 +31,7 @@ job-config:
   display_step: 100
   optimizer: adam
   batch_size: 32
+server:
+  version: 1.0
+  grpc: 8500
+  rest: 8501
