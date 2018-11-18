@@ -19,10 +19,10 @@ RUN apt-get update -y && apt-get install -y \
 
 RUN pip install --upgrade pip
 
-RUN pip install -U setuptools && \
-    pip install kubernetes && \
-    pip install cryptography && \
-    pip install psycopg2-binary==2.7.4
+#RUN pip install -U setuptools && \
+#    pip install kubernetes && \
+#    pip install cryptography && \
+#    pip install psycopg2-binary==2.7.4
 
 COPY airflow.tar.gz /tmp/
 

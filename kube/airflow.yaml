@@ -152,7 +152,7 @@ spec:
   type: NodePort
   ports:
     - port: 8080
-      nodePort: 30809
+      nodePort: 30800
   selector:
     name: airflow
 

@@ -36,8 +36,8 @@ RUN apt-get update -y && apt-get install -y \
         nano \
     && apt-get clean
 
-RUN pip install --upgrade pip
-
+RUN pip install pip -U && \
+    python -m pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 # Since we install vanilla Airflow, we also want to have support for Postgres and Kubernetes
 RUN pip install -U setuptools && \
     pip install kubernetes && \

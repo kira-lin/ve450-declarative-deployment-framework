@@ -32,6 +32,7 @@ import traceback
 import markdown
 import nvd3
 import pendulum
+import yaml
 
 import sqlalchemy as sqla
 from sqlalchemy import or_, desc, and_, union_all
@@ -1871,6 +1872,18 @@ class VariableModelView(AirflowModelView):
             flash("{} variable(s) successfully updated.".format(len(d)))
             self.update_redirect()
             return redirect(self.get_redirect())
+
+    @expose('/dagimport', methods=["GET", "POST"])
+    @has_access
+    @action_logging
+    def dagimport(self):
+        # flash("test")
+        try:
+            f = yaml.safe_load(request.files['file'].read())
+            dagbag.parse_from_yaml(f)
+        except Exception as e:
+            flash("Failed to parse yaml: {}".format(e))
+        return redirect('/admin')
 
 
 class JobModelView(AirflowModelView):
