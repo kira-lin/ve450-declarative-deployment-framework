@@ -26,12 +26,12 @@ from airflow.models import DAG
 import os
 
 args = {
-    'owner': {{ owner }},
+    'owner': '{{ owner }}',
     'start_date': airflow.utils.dates.days_ago(2)
 }
 
 dag = DAG(
-    dag_id={{ ID }}, default_args=args,
+    dag_id='{{ ID }}', default_args=args,
     schedule_interval=None
 )
 
@@ -47,18 +47,18 @@ t1 = PythonOperator(
 
 model_name = '{{ model_name }}'
 
-serve = 'tensorflow_model_server --port=8500 --rest_api_port=8501 --model_name={} \
- --model_base_path=/root/airflow/runtime/models/{}'.format(model_name, model_name)
+serve = 'tensorflow_model_server --port={{ grpc }} --rest_api_port={{ rest }} --model_name={} \
+ --model_base_path=/root/airflow/runtime/models/{} &'.format(model_name, model_name)
 
 def model_exist():
-    if os.path.isdir('/root/airflow/runtime/{}'.format(model_name)):
+    if {{ not_serve }} or os.path.isdir('/root/airflow/runtime/{}'.format(model_name)):
         return 'update_version_or_not_serve'
     else:
         return 'serve_model'
 
 
 branch = BranchPythonOperator(
-    task_id="serve_or_not", python_callable=model_exist, dag=dag
+    task_id="serve_or_not", python_callable=model_exist, dag=dag,
 )
 
 t2 = BashOperator(

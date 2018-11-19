@@ -1,6 +1,7 @@
 ID: demo_yaml_parser
 owner: airflow
 type: tensorflow
+model_name: Mnist
 job-config:
   data:
     placeholder:
@@ -32,6 +33,5 @@ job-config:
   optimizer: adam
   batch_size: 32
 server:
-  version: 1.0
   grpc: 8500
   rest: 8501

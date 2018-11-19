@@ -17,8 +17,12 @@
 #  specific language governing permissions and limitations      *
 #  under the License.
 
-cd /usr/local/lib/python2.7/dist-packages/airflow && \
+cd /usr/local/lib/python2.7/dist-packages/airflow
 cp -R example_dags/* /root/airflow/dags/ && \
+# rm /root/airflow/dags/example* && \
+# rm /root/airflow/dags/docker* && \
+# rm /root/airflow/dags/test* && \
+# rm /root/airflow/dags/tutorial* && \
 airflow initdb && \
 alembic upgrade heads && \
 (airflow create_user -u airflow -l airflow -f jon -e airflow@apache.org -r Admin -p airflow || true)

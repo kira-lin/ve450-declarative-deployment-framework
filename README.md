@@ -20,7 +20,7 @@
 The project is still in development
 1. In `airflow-container/`, run `build.sh` to build the image
 2. In `kube/`, run `deploy.sh` to deploy airflow on minikube
-3. You can access airflow web ui on localhost:30809
+3. You can access airflow web ui on localhost:30800
 4. Use `kubectl cp` command to copy files into `/root/airflow/dags` or `/root/airflow/runtime`
 5. To run the demo, you need to upload `JOBCONFIG.yaml` in the homepage. Then you can trigger it on webUI.
 6. It's normal that the dag remains running, because there is a sever running. You can mark it to succeed.

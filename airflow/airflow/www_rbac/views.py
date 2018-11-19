@@ -1873,8 +1873,8 @@ class VariableModelView(AirflowModelView):
             self.update_redirect()
             return redirect(self.get_redirect())
 
-    @expose('/dagimport', methods=["GET", "POST"])
-    @has_access
+    @expose('/dagimport', methods=["POST"])
+    # @has_access
     @action_logging
     def dagimport(self):
         # flash("test")

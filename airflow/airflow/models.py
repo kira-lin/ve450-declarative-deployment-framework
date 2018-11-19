@@ -599,9 +599,15 @@ class DagBag(BaseDagBag, LoggingMixin):
                 script_name = 'mnist_keras.py'
                 kwargs['model_name'] = yaml['model_name']
                 kwargs['script_name'] = script_name
+                kwargs['not_serve'] = 'True'
+                if 'server' in yaml:
+                    kwargs['not_serve'] = 'False'
+                    kwargs['grpc'] = yaml['server']['grpc']
+                    kwargs['rest'] = yaml['server']['rest']
             dag = template.render(kwargs)
-            with open('{}/{}.py'.format(self.dag_folder, ['ID']), 'w') as fout:
+            with open('{}/{}.py'.format(self.dag_folder, kwargs['ID']), 'w') as fout:
                 fout.write(dag)
+            self.collect_dags(self.dag_folder)
         except Exception as e:
             raise e
 
