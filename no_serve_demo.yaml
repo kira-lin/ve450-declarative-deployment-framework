@@ -1,4 +1,4 @@
-ID: demo_yaml_parser
+ID: demo_yaml_parser_no_serve
 owner: airflow
 type: tensorflow
 model_name: Mnist
@@ -32,4 +32,4 @@ job-config:
   display_step: 100
   optimizer: adam
   batch_size: 32
-serve: True
+serve: False

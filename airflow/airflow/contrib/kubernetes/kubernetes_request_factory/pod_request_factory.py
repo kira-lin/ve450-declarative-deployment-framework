@@ -53,6 +53,7 @@ spec:
         self.extract_volume_secrets(pod, req)
         self.attach_volumes(pod, req)
         self.attach_volume_mounts(pod, req)
+        self.attach_ports(pod,req)
         self.extract_resources(pod, req)
         self.extract_service_account_name(pod, req)
         self.extract_init_containers(pod, req)

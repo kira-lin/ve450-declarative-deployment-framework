@@ -1552,6 +1552,21 @@ class Airflow(AirflowBaseView):
 
         return json.dumps(task_instances)
 
+    @expose('/dagimport', methods=["POST"])
+    @has_access
+    @action_logging
+    def dagimport(self):
+        # flash("test")
+        try:
+            flash(request.headers)
+            flash(request.get_data())
+            f = yaml.safe_load(request.files['file'].read())
+            dagbag.parse_from_yaml(f)
+            dagbag.collect_dags(only_if_updated=False)
+        except Exception as e:
+            flash("Failed to parse yaml: {}".format(e))
+        return redirect('/')
+
 
 class VersionView(AirflowBaseView):
     @expose('/version')
@@ -1872,18 +1887,6 @@ class VariableModelView(AirflowModelView):
             flash("{} variable(s) successfully updated.".format(len(d)))
             self.update_redirect()
             return redirect(self.get_redirect())
-
-    @expose('/dagimport', methods=["POST"])
-    # @has_access
-    @action_logging
-    def dagimport(self):
-        # flash("test")
-        try:
-            f = yaml.safe_load(request.files['file'].read())
-            dagbag.parse_from_yaml(f)
-        except Exception as e:
-            flash("Failed to parse yaml: {}".format(e))
-        return redirect('/admin')
 
 
 class JobModelView(AirflowModelView):

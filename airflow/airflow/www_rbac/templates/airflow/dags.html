@@ -39,7 +39,7 @@
               <input id="dag_query" type="text" class="typeahead form-control" data-provide="typeahead" style="width:50%;" value="{{search_query}}">
             </div>
         </form>
-        <form class="form-inline" action="{{ url_for("VariableModelView.dagimport") }}" method=post enctype=multipart/form-data style="margin-top: 10px;">
+        <form class="form-inline" action="{{ url_for("Airflow.dagimport") }}" method=post enctype=multipart/form-data style="margin-top: 10px;">
             {% if csrf_token %}
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             {% endif %}

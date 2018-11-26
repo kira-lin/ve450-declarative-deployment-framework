@@ -607,7 +607,7 @@ class DagBag(BaseDagBag, LoggingMixin):
             dag = template.render(kwargs)
             with open('{}/{}.py'.format(self.dag_folder, kwargs['ID']), 'w') as fout:
                 fout.write(dag)
-            self.collect_dags(self.dag_folder)
+            # self.collect_dags()
         except Exception as e:
             raise e
 

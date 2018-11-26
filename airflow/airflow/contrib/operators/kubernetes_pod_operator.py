@@ -24,7 +24,7 @@ from airflow.utils.state import State
 from airflow.contrib.kubernetes.volume_mount import VolumeMount  # noqa
 from airflow.contrib.kubernetes.volume import Volume  # noqa
 from airflow.contrib.kubernetes.secret import Secret  # noqa
-
+import yaml
 template_fields = ('templates_dict',)
 template_ext = tuple()
 ui_color = '#ffefeb'
@@ -78,6 +78,18 @@ class KubernetesPodOperator(BaseOperator):
     :type xcom_push: bool
     """
     template_fields = ('cmds', 'arguments', 'env_vars', 'config_file')
+    _yaml = """
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: name
+        spec:
+          type: NodePort
+          ports:
+            - port: 8051
+          selector:
+            name: airflow
+            """
 
     def execute(self, context):
         try:
@@ -99,7 +111,7 @@ class KubernetesPodOperator(BaseOperator):
                 arguments=self.arguments,
                 labels=self.labels,
             )
-
+            # pod.ports = self.ports
             pod.secrets = self.secrets
             pod.envs = self.env_vars
             pod.image_pull_policy = self.image_pull_policy
@@ -109,16 +121,27 @@ class KubernetesPodOperator(BaseOperator):
 
             launcher = pod_launcher.PodLauncher(kube_client=client,
                                                 extract_xcom=self.xcom_push)
-            (final_state, result) = launcher.run_pod(
-                pod,
-                startup_timeout=self.startup_timeout_seconds,
-                get_logs=self.get_logs)
-            if final_state != State.SUCCESS:
-                raise AirflowException(
-                    'Pod returned a failure: {state}'.format(state=final_state)
-                )
-            if self.xcom_push:
-                return result
+            if not self.async:
+                (final_state, result) = launcher.run_pod(
+                    pod,
+                    startup_timeout=self.startup_timeout_seconds,
+                    get_logs=self.get_logs)
+                if final_state != State.SUCCESS:
+                    raise AirflowException(
+                        'Pod returned a failure: {state}'.format(state=final_state)
+                    )
+                if self.xcom_push:
+                    return result
+            else:
+                resp = launcher.run_pod_async(pod)
+                self.log.debug("Async pod create status: %s", resp)
+            if self.port:
+                req = yaml.load(self._yaml)
+                req['metadata']['name'] = '{}-server'.format(self.name)
+                req['spec']['ports'][0]['port'] = self.port
+                req['spec']['selector']['name'] = self.name
+                response = client.create_namespaced_service(body=req, namespace=self.namespace)
+                self.log.info(response)
         except AirflowException as ex:
             raise AirflowException('Pod Launching failed: {error}'.format(error=ex))
 
@@ -127,6 +150,8 @@ class KubernetesPodOperator(BaseOperator):
                  namespace,
                  image,
                  name,
+                 async=False,
+                 port=None,
                  cmds=None,
                  arguments=None,
                  volume_mounts=None,
@@ -150,6 +175,8 @@ class KubernetesPodOperator(BaseOperator):
         self.image = image
         self.namespace = namespace
         self.cmds = cmds or []
+        self.async = async
+        self.port = port
         self.arguments = arguments or []
         self.labels = labels or {}
         self.startup_timeout_seconds = startup_timeout_seconds

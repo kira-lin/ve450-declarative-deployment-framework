@@ -31,6 +31,7 @@ echo "Airflow directory $AIRFLOW_ROOT"
 echo "Airflow Docker directory $DIRNAME"
 
 cd $AIRFLOW_ROOT
+python setup.py build_py
 python setup.py sdist -q > /dev/null
 echo "Copy distro $AIRFLOW_ROOT/dist/*.tar.gz ${DIRNAME}/airflow.tar.gz"
 cp $AIRFLOW_ROOT/dist/*.tar.gz ${DIRNAME}/airflow.tar.gz

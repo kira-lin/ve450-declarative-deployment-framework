@@ -37,7 +37,8 @@ RUN apt-get update -y && apt-get install -y \
     && apt-get clean
 
 RUN pip install pip -U && \
-    python -m pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+#    python -m pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+    python -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
 # Since we install vanilla Airflow, we also want to have support for Postgres and Kubernetes
 RUN pip install -U setuptools && \
     pip install kubernetes && \
@@ -49,6 +50,7 @@ COPY airflow.tar.gz /tmp/airflow.tar.gz
 RUN pip install /tmp/airflow.tar.gz
 #RUN pip install apache-airflow[crypto,postgres,kubernetes]==1.10.0
 COPY airflow-test-env-init.sh /tmp/airflow-test-env-init.sh
+#COPY create_admin.py /tmp/create_admin.py
 
 COPY bootstrap.sh /bootstrap.sh
 RUN chmod +x /bootstrap.sh

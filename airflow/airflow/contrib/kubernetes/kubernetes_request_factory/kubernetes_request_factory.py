@@ -103,6 +103,14 @@ class KubernetesRequestFactory:
             req['spec']['containers'][0]['volumeMounts'].extend(pod.volume_mounts)
 
     @staticmethod
+    def attach_ports(pod, req):
+        pass
+    #     if len(pod.ports) > 0:
+    #         req['spec']['containers'][0]['ports'] = (
+    #             req['spec']['containers'][0].get('ports', []))
+    #         req['spec']['containers'][0]['ports'].extend(pod.ports)
+
+    @staticmethod
     def extract_name(pod, req):
         req['metadata']['name'] = pod.name
 

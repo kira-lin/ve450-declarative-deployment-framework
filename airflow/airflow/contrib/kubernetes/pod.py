@@ -62,6 +62,7 @@ class Pod:
             image,
             envs,
             cmds,
+            ports=None,
             args=None,
             secrets=None,
             labels=None,
@@ -82,6 +83,7 @@ class Pod:
         self.image = image
         self.envs = envs or {}
         self.cmds = cmds
+        self.ports = ports or {}
         self.args = args or []
         self.secrets = secrets or []
         self.result = result

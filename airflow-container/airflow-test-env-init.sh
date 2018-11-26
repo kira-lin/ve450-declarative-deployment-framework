@@ -26,4 +26,5 @@ cp -R example_dags/* /root/airflow/dags/ && \
 airflow initdb && \
 alembic upgrade heads && \
 (airflow create_user -u airflow -l airflow -f jon -e airflow@apache.org -r Admin -p airflow || true)
+#python /tmp/create_admin.py
 #echo "retrieved from mount" > /root/test_volume/test.txt

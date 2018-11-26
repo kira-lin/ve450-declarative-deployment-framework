@@ -20,8 +20,10 @@ from __future__ import print_function
 import airflow
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.python_operator import BranchPythonOperator
-from airflow.operators.bash_operator import BashOperator
+from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.operators.dummy_operator import DummyOperator
+from airflow.contrib.kubernetes.volume_mount import VolumeMount
+from airflow.contrib.kubernetes.volume import Volume
 from airflow.models import DAG
 import os
 
@@ -47,8 +49,8 @@ t1 = PythonOperator(
 
 model_name = '{{ model_name }}'
 
-serve = 'tensorflow_model_server --port={{ grpc }} --rest_api_port={{ rest }} --model_name={} \
- --model_base_path=/root/airflow/runtime/models/{} &'.format(model_name, model_name)
+#serve = 'tensorflow_model_server --port={{ grpc }} --rest_api_port={{ rest }} --model_name={} \
+# --model_base_path=/root/airflow/runtime/models/{} &'.format(model_name, model_name)
 
 def model_exist():
     if {{ not_serve }} or os.path.isdir('/root/airflow/runtime/{}'.format(model_name)):
@@ -61,10 +63,19 @@ branch = BranchPythonOperator(
     task_id="serve_or_not", python_callable=model_exist, dag=dag,
 )
 
-t2 = BashOperator(
-    task_id="serve_model", bash_command=serve, dag=dag,
-    executor_config={"KubernetesExecutor": {"image": "tfserving:airflow"}}
-)
+volume_mount = VolumeMount(name='test-volume', mount_path='/root/runtime', sub_path=None, read_only=False)
+volume_config= {
+    'persistentVolumeClaim':
+      {
+        'claimName': 'test-volume'
+      }
+    }
+volume = Volume(name='test-volume', configs=volume_config)
+
+t2 = KubernetesPodOperator(namespace="default", name="{}".format(model_name), image="tensorflow/serving:latest",
+                           env_vars={'MODEL_NAME':'{}'.format(model_name), 'MODEL_BASE_PATH':'/root/runtime/models'},
+                           task_id="serve_model", port=8501, dag=dag, async=True, in_cluster=True,
+                           volume_mounts=[volume_mount], volumes=[volume])
 
 t3 = DummyOperator(
     task_id="update_version_or_not_serve", dag=dag
