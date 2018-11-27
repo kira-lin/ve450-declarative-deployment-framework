@@ -1558,8 +1558,7 @@ class Airflow(AirflowBaseView):
     def dagimport(self):
         # flash("test")
         try:
-            flash(request.headers)
-            flash(request.get_data())
+            logging.debug(request.args)
             f = yaml.safe_load(request.files['file'].read())
             dagbag.parse_from_yaml(f)
             dagbag.collect_dags(only_if_updated=False)

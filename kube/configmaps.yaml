@@ -32,7 +32,7 @@ data:
     sql_alchemy_conn = $SQL_ALCHEMY_CONN
 
     [scheduler]
-    dag_dir_list_interval = 300
+    dag_dir_list_interval = 30
     child_process_log_directory = /root/airflow/logs/scheduler
     # Task instances listen for external kill signal (when you clear tasks
     # from the CLI or the UI), this defines the frequency at which they should
@@ -141,7 +141,7 @@ data:
 
     # Default DAG orientation. Valid values are:
     # LR (Left->Right), TB (Top->Bottom), RL (Right->Left), BT (Bottom->Top)
-    dag_orientation = LR
+    dag_orientation = TB
 
     # Puts the webserver in demonstration mode; blurs the names of Operators for
     # privacy.
@@ -179,7 +179,7 @@ data:
     worker_container_repository = airflow
     worker_container_tag = latest
     worker_container_image_pull_policy = IfNotPresent
-    delete_worker_pods = True
+    delete_worker_pods = False
     git_repo = https://github.com/apache/incubator-airflow.git
     git_branch = master
     git_subpath = airflow/example_dags/

@@ -37,32 +37,6 @@ dag = DAG(
     schedule_interval=None
 )
 
-
-def run():
-    execfile('/root/airflow/runtime/{{ script_name }}')
-
-# But you can if you want to
-t1 = PythonOperator(
-    task_id="train_and_save", python_callable=run, dag=dag,
-    executor_config={"KubernetesExecutor": {"image": "tensorflow:airflow"}}
-)
-
-model_name = '{{ model_name }}'
-
-#serve = 'tensorflow_model_server --port={{ grpc }} --rest_api_port={{ rest }} --model_name={} \
-# --model_base_path=/root/airflow/runtime/models/{} &'.format(model_name, model_name)
-
-def model_exist():
-    if {{ not_serve }} or os.path.isdir('/root/airflow/runtime/{}'.format(model_name)):
-        return 'update_version_or_not_serve'
-    else:
-        return 'serve_model'
-
-
-branch = BranchPythonOperator(
-    task_id="serve_or_not", python_callable=model_exist, dag=dag,
-)
-
 volume_mount = VolumeMount(name='test-volume', mount_path='/root/runtime', sub_path=None, read_only=False)
 volume_config= {
     'persistentVolumeClaim':
@@ -72,15 +46,46 @@ volume_config= {
     }
 volume = Volume(name='test-volume', configs=volume_config)
 
-t2 = KubernetesPodOperator(namespace="default", name="{}".format(model_name), image="tensorflow/serving:latest",
+# def run():
+#     execfile('/root/airflow/runtime/{{ script_name }}')
+#
+# # But you can if you want to
+# t1 = PythonOperator(
+#     task_id="train_and_save", python_callable=run, dag=dag,
+#     executor_config={"KubernetesExecutor": {"image": "tensorflow:airflow"}}
+# )
+
+model_name = '{{ model_name }}'
+script_name = '{{ script_name }}'
+t1 = KubernetesPodOperator(task_id="train_and_save", dag=dag, in_cluster=True, volume_mounts=[volume_mount],
+                           volumes=[volume], namespace='default', name="{}-trainer".format(model_name.lower()),
+                           image='tensorflow/tensorflow:latest', arguments=['python', '/root/runtime/{}'.format(script_name)])
+
+
+#serve = 'tensorflow_model_server --port={{ grpc }} --rest_api_port={{ rest }} --model_name={} \
+# --model_base_path=/root/airflow/runtime/models/{} &'.format(model_name, model_name)
+
+def model_exist():
+    if {{ not_serve }} or os.path.isdir('/root/airflow/runtime/models/{}'.format(model_name)):
+        return 'update_version_or_not_serve'
+    else:
+        return 'serve_model'
+
+
+branch = BranchPythonOperator(
+    task_id="serve_or_not", python_callable=model_exist, dag=dag
+)
+
+t2 = KubernetesPodOperator(namespace="default", name="{}-restapi".format(model_name.lower()), image="tensorflow/serving:latest",
                            env_vars={'MODEL_NAME':'{}'.format(model_name), 'MODEL_BASE_PATH':'/root/runtime/models'},
                            task_id="serve_model", port=8501, dag=dag, async=True, in_cluster=True,
+                           labels={'name':'{}-restapi'.format(model_name.lower())},
                            volume_mounts=[volume_mount], volumes=[volume])
 
 t3 = DummyOperator(
     task_id="update_version_or_not_serve", dag=dag
 )
 
-t1.set_upstream(branch)
-branch.set_upstream(t2)
-branch.set_upstream(t3)
+t1.set_downstream(branch)
+branch.set_downstream(t2)
+branch.set_downstream(t3)

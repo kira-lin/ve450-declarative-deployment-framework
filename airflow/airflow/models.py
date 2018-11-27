@@ -600,10 +600,8 @@ class DagBag(BaseDagBag, LoggingMixin):
                 kwargs['model_name'] = yaml['model_name']
                 kwargs['script_name'] = script_name
                 kwargs['not_serve'] = 'True'
-                if 'server' in yaml:
+                if yaml['serve']:
                     kwargs['not_serve'] = 'False'
-                    kwargs['grpc'] = yaml['server']['grpc']
-                    kwargs['rest'] = yaml['server']['rest']
             dag = template.render(kwargs)
             with open('{}/{}.py'.format(self.dag_folder, kwargs['ID']), 'w') as fout:
                 fout.write(dag)
