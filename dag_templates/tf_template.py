@@ -56,10 +56,10 @@ volume = Volume(name='test-volume', configs=volume_config)
 # )
 
 model_name = '{{ model_name }}'
-script_name = '{{ script_name }}'
+run_dir = '{{ run_dir }}'
 t1 = KubernetesPodOperator(task_id="train_and_save", dag=dag, in_cluster=True, volume_mounts=[volume_mount],
                            volumes=[volume], namespace='default', name="{}-trainer".format(model_name.lower()),
-                           image='tensorflow/tensorflow:latest', arguments=['python', '/root/runtime/{}'.format(script_name)])
+                           image='tensorflow/tensorflow:latest', arguments=['python', '/root/runtime/run_job.py','/root/runtime/{}'.format(run_dir)])
 
 
 #serve = 'tensorflow_model_server --port={{ grpc }} --rest_api_port={{ rest }} --model_name={} \

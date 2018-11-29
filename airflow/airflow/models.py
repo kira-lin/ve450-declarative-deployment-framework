@@ -584,11 +584,16 @@ class DagBag(BaseDagBag, LoggingMixin):
         return dag_ids
 
     @provide_session
-    def parse_from_yaml(self, yaml, session=None):
+    def parse_from_yaml(self, archive, session=None):
         try:
+            import zipfile, yaml
+            with zipfile.ZipFile('/root/airflow/runtime/{}'.format(archive), 'r') as zip_ref:
+                zip_ref.extractall()
+            with open('/root/airflow/runtime/{}/JOBCONFIG.yaml'.format(archive.split('.')[0])) as fin:
+                yaml = yaml.load(fin.read())
             if yaml['type'] not in ['tensorflow']:
                 raise Exception('Provided type is not supported!')
-            with open('/root/airflow/runtime/{}.py'.format(yaml['type'])) as fin:
+            with open('/root/airflow/runtime/tf_template.py') as fin:
                 content = fin.read()
             template = jinja2.Template(content)
             kwargs = {}
@@ -596,9 +601,9 @@ class DagBag(BaseDagBag, LoggingMixin):
             kwargs['ID'] = yaml['ID']
             if yaml['type'] == 'tensorflow':
                 # Modify this
-                script_name = 'mnist_keras.py'
+                run_dir = archive.split('.')[0]
                 kwargs['model_name'] = yaml['model_name']
-                kwargs['script_name'] = script_name
+                kwargs['run_dir'] = run_dir
                 kwargs['not_serve'] = 'True'
                 if yaml['serve']:
                     kwargs['not_serve'] = 'False'

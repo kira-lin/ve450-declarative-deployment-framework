@@ -1558,9 +1558,9 @@ class Airflow(AirflowBaseView):
     def dagimport(self):
         # flash("test")
         try:
-            logging.debug(request.args)
-            f = yaml.safe_load(request.files['file'].read())
-            dagbag.parse_from_yaml(f)
+            with open('/root/airflow/runtime/tmp.zip', 'w') as fout:
+                fout.write(request.files['file'].read())
+            dagbag.parse_from_yaml('tmp.zip', request)
             dagbag.collect_dags(only_if_updated=False)
         except Exception as e:
             flash("Failed to parse yaml: {}".format(e))
