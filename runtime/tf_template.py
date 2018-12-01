@@ -37,7 +37,7 @@ dag = DAG(
     schedule_interval=None
 )
 
-volume_mount = VolumeMount(name='test-volume', mount_path='/root/runtime', sub_path=None, read_only=False)
+volume_mount = VolumeMount(name='test-volume', mount_path='/root/runtime', sub_path='{{ subpath }}', read_only=False)
 volume_config= {
     'persistentVolumeClaim':
       {
@@ -45,7 +45,6 @@ volume_config= {
       }
     }
 volume = Volume(name='test-volume', configs=volume_config)
-
 # def run():
 #     execfile('/root/airflow/runtime/{{ script_name }}')
 #
@@ -56,10 +55,9 @@ volume = Volume(name='test-volume', configs=volume_config)
 # )
 
 model_name = '{{ model_name }}'
-run_dir = '{{ run_dir }}'
 t1 = KubernetesPodOperator(task_id="train_and_save", dag=dag, in_cluster=True, volume_mounts=[volume_mount],
-                           volumes=[volume], namespace='default', name="{}-trainer".format(model_name.lower()),
-                           image='tensorflow/tensorflow:latest', arguments=['python', '/root/runtime/run_job.py','/root/runtime/{}'.format(run_dir)])
+                           namespace='default', name="{}-trainer".format(model_name.lower()), volumes=[volume],
+                           image='tensorflow:latest', arguments=['python', '/root/runtime/run_dl_job.py'])
 
 
 #serve = 'tensorflow_model_server --port={{ grpc }} --rest_api_port={{ rest }} --model_name={} \
@@ -77,7 +75,7 @@ branch = BranchPythonOperator(
 )
 
 t2 = KubernetesPodOperator(namespace="default", name="{}-restapi".format(model_name.lower()), image="tensorflow/serving:latest",
-                           env_vars={'MODEL_NAME':'{}'.format(model_name), 'MODEL_BASE_PATH':'/root/runtime/models'},
+                           env_vars={'MODEL_NAME':'saved_model', 'MODEL_BASE_PATH':'/root/runtime'},
                            task_id="serve_model", port=8501, dag=dag, async=True, in_cluster=True,
                            labels={'name':'{}-restapi'.format(model_name.lower())},
                            volume_mounts=[volume_mount], volumes=[volume])

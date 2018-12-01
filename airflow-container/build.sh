@@ -29,7 +29,7 @@ fi
 
 echo "Airflow directory $AIRFLOW_ROOT"
 echo "Airflow Docker directory $DIRNAME"
-
+export SLUGIFY_USES_TEXT_UNIDECODE=yes
 cd $AIRFLOW_ROOT
 python setup.py build_py
 python setup.py sdist -q > /dev/null

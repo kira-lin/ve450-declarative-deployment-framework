@@ -32,7 +32,7 @@ import traceback
 import markdown
 import nvd3
 import pendulum
-import yaml
+from hashlib import md5
 
 import sqlalchemy as sqla
 from sqlalchemy import or_, desc, and_, union_all
@@ -1556,14 +1556,25 @@ class Airflow(AirflowBaseView):
     @has_access
     @action_logging
     def dagimport(self):
-        # flash("test")
-        try:
-            with open('/root/airflow/runtime/tmp.zip', 'w') as fout:
-                fout.write(request.files['file'].read())
-            dagbag.parse_from_yaml('tmp.zip', request)
-            dagbag.collect_dags(only_if_updated=False)
-        except Exception as e:
-            flash("Failed to parse yaml: {}".format(e))
+        if 'file' not in request.files:
+            flash('No file part')
+        else:
+            try:
+                file = request.files['file']
+                filenames = file.filename.rsplit('.', 1)
+                if filenames[1].lower() != 'zip':
+                    flash('Only zip format is allowed!')
+                else:
+                    dir = md5(filenames[0]).hexdigest()
+                    if not os.path.exists('/root/airflow/runtime/{}'.format(dir)):
+                        os.mkdir('/root/airflow/runtime/{}'.format(dir))
+                    path = dir + '/' + file.filename
+                    with open('/root/airflow/runtime/{}'.format(path), 'w') as fout:
+                        fout.write(request.files['file'].read())
+                    dagbag.parse_from_yaml(path, g.user)
+                    dagbag.collect_dags(only_if_updated=False)
+            except Exception as e:
+                flash("Failed to parse yaml: {}".format(e))
         return redirect('/')
 
 

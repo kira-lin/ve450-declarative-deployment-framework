@@ -18,13 +18,11 @@
 
 ### Guides
 The project is still in development
-1. In `airflow-container/`, run `build.sh` to build the image
+1. In `airflow-container/` and `tf-container/`, run `build.sh` to build the image
 2. In `kube/`, run `deploy.sh` to deploy airflow on minikube
 3. You can access airflow web ui on localhost:30800
-4. Use `kubectl cp` command to copy files into `/root/airflow/dags` or `/root/airflow/runtime`
-5. To run the demo, you need to upload `JOBCONFIG.yaml` in the homepage. Then you can trigger it on webUI.
-6. It's normal that the dag remains running, because there is a sever running. You can mark it to succeed.
-
+4. Use `kubectl cp` command to copy files in `runtime/` to `/root/airflow/runtime`
+5. To create a dag, you need to upload a `zip` containing a file named `JOBCONFIG.yaml`, and datasets you specify in it.
 ### To-do lists
 * Improve/Add templates to support more workflow
 * Create more containers to satisfy various workloads

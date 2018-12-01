@@ -28,7 +28,6 @@ from builtins import str, object, bytes, ImportError as BuiltinImportError
 import copy
 from collections import namedtuple, defaultdict
 from datetime import timedelta
-
 import dill
 import functools
 import getpass
@@ -40,7 +39,7 @@ import jinja2
 import json
 import logging
 import numbers
-import os
+import os, shutil
 import pickle
 import re
 import signal
@@ -49,7 +48,7 @@ import textwrap
 import traceback
 import warnings
 import hashlib
-
+import yaml
 import uuid
 from datetime import datetime
 from urllib.parse import urlparse, quote, parse_qsl
@@ -584,28 +583,27 @@ class DagBag(BaseDagBag, LoggingMixin):
         return dag_ids
 
     @provide_session
-    def parse_from_yaml(self, archive, session=None):
+    def parse_from_yaml(self, path, user, session=None):
         try:
-            import zipfile, yaml
-            with zipfile.ZipFile('/root/airflow/runtime/{}'.format(archive), 'r') as zip_ref:
-                zip_ref.extractall()
-            with open('/root/airflow/runtime/{}/JOBCONFIG.yaml'.format(archive.split('.')[0])) as fin:
-                yaml = yaml.load(fin.read())
-            if yaml['type'] not in ['tensorflow']:
+            dir = path.rsplit('/',1)[0]
+            with zipfile.ZipFile('/root/airflow/runtime/{}'.format(path), 'r') as zip_ref:
+                zip_ref.extractall('/root/airflow/runtime/{}'.format(dir))
+            with open('/root/airflow/runtime/{}/JOBCONFIG.yaml'.format(dir)) as fin:
+                dict = yaml.load(fin.read())
+            if dict['container'] not in ['dl']:
                 raise Exception('Provided type is not supported!')
             with open('/root/airflow/runtime/tf_template.py') as fin:
                 content = fin.read()
             template = jinja2.Template(content)
             kwargs = {}
-            kwargs['owner'] = yaml['owner']
-            kwargs['ID'] = yaml['ID']
-            if yaml['type'] == 'tensorflow':
-                # Modify this
-                run_dir = archive.split('.')[0]
-                kwargs['model_name'] = yaml['model_name']
-                kwargs['run_dir'] = run_dir
+            kwargs['owner'] = user
+            kwargs['ID'] = dict['ID']
+            if dict['type'] == 'dl':
+                shutil.copyfile('/root/airflow/runtime/run_dl_job.py', '/root/airflow/runtime/{}/run_dl_job.py'.format(dir))
+                kwargs['model_name'] = dict['model_name']
+                kwargs['subpath'] = dir
                 kwargs['not_serve'] = 'True'
-                if yaml['serve']:
+                if dict['serve']:
                     kwargs['not_serve'] = 'False'
             dag = template.render(kwargs)
             with open('{}/{}.py'.format(self.dag_folder, kwargs['ID']), 'w') as fout:
