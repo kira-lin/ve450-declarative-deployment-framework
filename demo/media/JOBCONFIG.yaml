@@ -1,0 +1,11 @@
+ID: edge-detection
+type: media
+container: media
+job-config:
+  name: "Edge Detection"
+  data:
+    input: [sunflowers.jpg]
+    output: [edges.png]
+  operation:
+    - [cv2.imread, 0]
+    - [cv2.Canny, 100, 200]

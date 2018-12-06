@@ -216,6 +216,28 @@ def clear_task_instances(tis,
             dr.start_date = timezone.utcnow()
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(ID_LEN), unique=True)
+    email = Column(String(500))
+    superuser = False
+
+    def __repr__(self):
+        return self.username
+
+    def get_id(self):
+        return str(self.id)
+
+    def get_email(self):
+        return str(self.email)
+
+    def is_superuser(self):
+        return self.superuser
+
+
+
 class DagBag(BaseDagBag, LoggingMixin):
     """
     A dagbag is a collection of dags, parsed out of a folder tree and has high
@@ -583,6 +605,17 @@ class DagBag(BaseDagBag, LoggingMixin):
         return dag_ids
 
     @provide_session
+    def save_dag(self, file, session=None):
+        try:
+            content = file.read()
+            filename =file.filename
+            with open('{}/{}.py'.format(self.dag_folder, kwargs['ID']), 'w') as fout:
+                fout.write(content)
+        except Exception as e:
+            raise e
+
+
+    @provide_session
     def parse_from_yaml(self, path, user, session=None):
         try:
             dir = path.rsplit('/',1)[0]
@@ -590,21 +623,41 @@ class DagBag(BaseDagBag, LoggingMixin):
                 zip_ref.extractall('/root/airflow/runtime/{}'.format(dir))
             with open('/root/airflow/runtime/{}/JOBCONFIG.yaml'.format(dir)) as fin:
                 dict = yaml.load(fin.read())
-            if dict['container'] not in ['dl']:
+            if dict['container'] not in ['dl', 'media', 'code']:
                 raise Exception('Provided type is not supported!')
-            with open('/root/airflow/runtime/tf_template.py') as fin:
-                content = fin.read()
-            template = jinja2.Template(content)
             kwargs = {}
             kwargs['owner'] = user
             kwargs['ID'] = dict['ID']
-            if dict['type'] == 'dl':
-                shutil.copyfile('/root/airflow/runtime/run_dl_job.py', '/root/airflow/runtime/{}/run_dl_job.py'.format(dir))
-                kwargs['model_name'] = dict['model_name']
-                kwargs['subpath'] = dir
+            kwargs['subpath'] = dir
+            shutil.copyfile('/root/airflow/runtime/run_job.py', '/root/airflow/runtime/{}/run_job.py'.format(dir))
+            if dict['container'] == 'dl':
+                shutil.copyfile('/root/airflow/runtime/dl_template.py',
+                                '/root/airflow/runtime/{}/dl_template.py'.format(dir))
+                kwargs['model_name'] = dict['job-config']['model_name']
                 kwargs['not_serve'] = 'True'
-                if dict['serve']:
+                if dict['job-config']['serve']:
                     kwargs['not_serve'] = 'False'
+                with open('/root/airflow/runtime/tf_dag_template.py') as fin:
+                    content = fin.read()
+                template = jinja2.Template(content)
+            elif dict['container'] == 'media':
+                shutil.copyfile('/root/airflow/runtime/media_template.py',
+                                '/root/airflow/runtime/{}/media_template.py'.format(dir))
+                if 'email' in dict:
+                    kwargs['email'] = dict['email']
+                elif user.email:
+                    kwargs['email']= user.email
+                else:
+                    raise Exception('No email supplied')
+                kwargs['output'] = dict['job-config']['data']['output']
+                with open('/root/airflow/runtime/media_dag_template.py') as fin:
+                    content = fin.read()
+                template = jinja2.Template(content)
+            elif dict['container'] == 'code':
+                kwargs['image'] = dict['image']
+                with open('/root/airflow/runtime/code_dag_template.py') as fin:
+                    content = fin.read()
+                template = jinja2.Template(content)
             dag = template.render(kwargs)
             with open('{}/{}.py'.format(self.dag_folder, kwargs['ID']), 'w') as fout:
                 fout.write(dag)
@@ -612,23 +665,6 @@ class DagBag(BaseDagBag, LoggingMixin):
         except Exception as e:
             raise e
 
-
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True)
-    username = Column(String(ID_LEN), unique=True)
-    email = Column(String(500))
-    superuser = False
-
-    def __repr__(self):
-        return self.username
-
-    def get_id(self):
-        return str(self.id)
-
-    def is_superuser(self):
-        return self.superuser
 
 
 class Connection(Base, LoggingMixin):

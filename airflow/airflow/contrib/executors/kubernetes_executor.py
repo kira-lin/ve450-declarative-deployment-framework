@@ -38,7 +38,7 @@ from airflow.utils.log.logging_mixin import LoggingMixin
 
 class KubernetesExecutorConfig:
     def __init__(self, image=None, image_pull_policy=None, request_memory=None,
-                 request_cpu=None, limit_memory=None, limit_cpu=None,
+                 request_cpu=None, limit_memory=None, limit_cpu=None, subpath=None,
                  gcp_service_account_key=None):
         self.image = image
         self.image_pull_policy = image_pull_policy
@@ -47,13 +47,14 @@ class KubernetesExecutorConfig:
         self.limit_memory = limit_memory
         self.limit_cpu = limit_cpu
         self.gcp_service_account_key = gcp_service_account_key
+        self.subpath = subpath
 
     def __repr__(self):
         return "{}(image={}, image_pull_policy={}, request_memory={}, request_cpu={}, " \
-               "limit_memory={}, limit_cpu={}, gcp_service_account_key={})" \
+               "limit_memory={}, limit_cpu={}, subpath={}, gcp_service_account_key={})" \
             .format(KubernetesExecutorConfig.__name__, self.image, self.image_pull_policy,
                     self.request_memory, self.request_cpu, self.limit_memory,
-                    self.limit_cpu, self.gcp_service_account_key)
+                    self.limit_cpu, self.subpath, self.gcp_service_account_key)
 
     @staticmethod
     def from_dict(obj):
@@ -73,6 +74,7 @@ class KubernetesExecutorConfig:
             request_cpu=namespaced.get('request_cpu', None),
             limit_memory=namespaced.get('limit_memory', None),
             limit_cpu=namespaced.get('limit_cpu', None),
+            subpath=namespaced.get('subpath', None),
             gcp_service_account_key=namespaced.get('gcp_service_account_key', None)
         )
 
@@ -84,6 +86,7 @@ class KubernetesExecutorConfig:
             'request_cpu': self.request_cpu,
             'limit_memory': self.limit_memory,
             'limit_cpu': self.limit_cpu,
+            'subpath':self.subpath,
             'gcp_service_account_key': self.gcp_service_account_key
         }
 

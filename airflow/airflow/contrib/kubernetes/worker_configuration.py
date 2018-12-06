@@ -102,10 +102,10 @@ class WorkerConfiguration(LoggingMixin):
             return []
         return self.kube_config.image_pull_secrets.split(',')
 
-    def init_volumes_and_mounts(self):
+    def init_volumes_and_mounts(self, subpath=None):
         dags_volume_name = 'airflow-dags'
         logs_volume_name = 'airflow-logs'
-
+        runtime_volume_name = 'test-volume'
         def _construct_volume(name, claim, subpath=None):
             vo = {
                 'name': name
@@ -130,6 +130,11 @@ class WorkerConfiguration(LoggingMixin):
                 logs_volume_name,
                 self.kube_config.logs_volume_claim,
                 self.kube_config.logs_volume_subpath
+            ),
+            _construct_volume(
+                runtime_volume_name,
+                'test-volume',
+                subpath
             )
         ]
 
@@ -149,6 +154,9 @@ class WorkerConfiguration(LoggingMixin):
         }, {
             'name': logs_volume_name,
             'mountPath': self.worker_airflow_logs
+        }, {
+            'name': runtime_volume_name,
+            'mountPath': '/root/airflow/runtime'
         }]
 
         # Mount the airflow.cfg file via a configmap the user has specified
@@ -172,7 +180,7 @@ class WorkerConfiguration(LoggingMixin):
 
     def make_pod(self, namespace, worker_uuid, pod_id, dag_id, task_id, execution_date,
                  airflow_command, kube_executor_config):
-        volumes, volume_mounts = self.init_volumes_and_mounts()
+        volumes, volume_mounts = self.init_volumes_and_mounts(kube_executor_config.subpath)
         worker_init_container_spec = self._get_init_containers(
             copy.deepcopy(volume_mounts))
         resources = Resources(

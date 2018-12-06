@@ -1553,18 +1553,19 @@ class Airflow(AirflowBaseView):
         return json.dumps(task_instances)
 
     @expose('/dagimport', methods=["POST"])
-    @has_access
+    # @has_access
     @action_logging
-    def dagimport(self):
+    @provide_session
+    def dagimport(self, session=None):
         if 'file' not in request.files:
             flash('No file part')
         else:
             try:
                 file = request.files['file']
                 filenames = file.filename.rsplit('.', 1)
-                if filenames[1].lower() != 'zip':
-                    flash('Only zip format is allowed!')
-                else:
+                if filenames[1].lower() == 'py':
+                    dagbag.save_dag(file)
+                elif filenames[1].lower() == 'zip':
                     dir = md5(filenames[0]).hexdigest()
                     if not os.path.exists('/root/airflow/runtime/{}'.format(dir)):
                         os.mkdir('/root/airflow/runtime/{}'.format(dir))
@@ -1573,6 +1574,8 @@ class Airflow(AirflowBaseView):
                         fout.write(request.files['file'].read())
                     dagbag.parse_from_yaml(path, g.user)
                     dagbag.collect_dags(only_if_updated=False)
+                else:
+                    flash('Only zip and py format is allowed!')
             except Exception as e:
                 flash("Failed to parse yaml: {}".format(e))
         return redirect('/')
