@@ -5,6 +5,7 @@ cleanup: false
 job-config:
   serve: true
   model_name: mnist
+  model_version: 1
   data:
     placeholder:
       input_type: file

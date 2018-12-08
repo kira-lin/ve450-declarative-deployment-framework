@@ -30,6 +30,17 @@ to view the log.
 9. To delete your dag, click the red button on the right of each dag. If you have run a deep-learning workflow with `serve: true`,
 you need to add `cleanup: true` to the `JOBCONFIG.yaml`, upload it and trigger it again on UI to fully delete it.(the pod and 
 service of restapi)
+
+### Screenshots
+1. How to run a dag:
+![demo/deep-learning](screenshots/run_dag.png)
+2. Graph view of a dag:
+![Graph View](screenshots/dag_result.png)
+3. Click on the task to check its log:
+![Log of tensorflow training](screenshots/dag_log.png)
+
 ### To-do lists
 * Create more containers/templates to satisfy various workloads
 * Optimize `runtime/dl_template.py`
+* [optional] Switch from yaml to json to get rid of PyYaml?
+

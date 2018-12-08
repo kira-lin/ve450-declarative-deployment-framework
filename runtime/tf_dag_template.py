@@ -76,7 +76,7 @@ serve_branch = BranchPythonOperator(
 )
 
 t3 = KubernetesPodOperator(namespace="default", name="{}-restapi".format(model_name.lower()), image="tensorflow/serving:latest",
-                           env_vars={'MODEL_NAME':'saved_model', 'MODEL_BASE_PATH':'/root/runtime/models'},
+                           env_vars={'MODEL_NAME':model_name, 'MODEL_BASE_PATH':'/root/runtime/models'},
                            task_id="serve_model", port=8501, dag=dag, async=True, in_cluster=True,
                            labels={'name':'{}-restapi'.format(model_name.lower())},
                            volume_mounts=[volume_mount], volumes=[volume])

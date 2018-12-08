@@ -173,11 +173,11 @@ def run_model(path, config):
                       "{:.9f}".format(c), "accuracy=%f" % (acc))
 
         print("Optimization Finished!")
-        tf.app.flags.DEFINE_integer('model_version', 1, 'version number of the model.')
-        export_path = os.path.join(tf.compat.as_bytes(path + '/models/' + "saved_model"),
+        tf.app.flags.DEFINE_integer('model_version', int(config.get('model_version')), 'version number of the model.')
+        export_path = os.path.join(tf.compat.as_bytes(path + '/models/' + config.get('model_name')),
                                    tf.compat.as_bytes(str(tf.app.flags.FLAGS.model_version)))
-        # if os.path.exists(export_path):
-        #     shutil.rmtree(export_path)
+        if os.path.exists(export_path):
+            shutil.rmtree(export_path)
 
         builder = tf.saved_model.builder.SavedModelBuilder(export_path)
         tensor_info_x = tf.saved_model.utils.build_tensor_info(X)
