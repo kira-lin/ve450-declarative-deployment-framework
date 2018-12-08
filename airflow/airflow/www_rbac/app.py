@@ -7,9 +7,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+import logging
 import socket
 import six
 
@@ -26,6 +27,7 @@ from flask_caching import Cache
 from flask_wtf.csrf import CSRFProtect
 from six.moves.urllib.parse import urlparse
 from werkzeug.wsgi import DispatcherMiddleware
+from werkzeug.contrib.fixers import ProxyFix
 
 from airflow import settings
 from airflow import configuration as conf
@@ -36,10 +38,13 @@ app = None
 appbuilder = None
 csrf = CSRFProtect()
 
+log = logging.getLogger(__name__)
 
 def create_app(config=None, testing=False, app_name="Airflow"):
     global app, appbuilder
     app = Flask(__name__)
+    if conf.getboolean('webserver', 'ENABLE_PROXY_FIX'):
+        app.wsgi_app = ProxyFix(app.wsgi_app)
     app.secret_key = conf.get('webserver', 'SECRET_KEY')
 
     airflow_home_path = conf.get('core', 'AIRFLOW_HOME')
@@ -120,6 +125,24 @@ def create_app(config=None, testing=False, app_name="Airflow"):
                                 category='About',
                                 category_icon='fa-th')
 
+            def integrate_plugins():
+                """Integrate plugins to the context"""
+                from airflow.plugins_manager import (
+                    flask_appbuilder_views, flask_appbuilder_menu_links)
+
+                for v in flask_appbuilder_views:
+                    log.debug("Adding view %s", v["name"])
+                    appbuilder.add_view(v["view"],
+                                        v["name"],
+                                        category=v["category"])
+                for ml in sorted(flask_appbuilder_menu_links, key=lambda x: x["name"]):
+                    log.debug("Adding menu link %s", ml["name"])
+                    appbuilder.add_link(ml["name"],
+                                        href=ml["href"],
+                                        category=ml["category"],
+                                        category_icon=ml["category_icon"])
+
+            integrate_plugins()
             # Garbage collect old permissions/views after they have been modified.
             # Otherwise, when the name of a view or menu is changed, the framework
             # will add the new Views and Menus names to the backend, but will not

@@ -56,7 +56,7 @@ from airflow.utils.state import State
 from airflow.utils.trigger_rule import TriggerRule
 from mock import patch, ANY
 from parameterized import parameterized
-from tempfile import NamedTemporaryFile
+from tempfile import mkdtemp, NamedTemporaryFile
 
 DEFAULT_DATE = timezone.datetime(2016, 1, 1)
 TEST_DAGS_FOLDER = os.path.join(
@@ -65,7 +65,7 @@ TEST_DAGS_FOLDER = os.path.join(
 
 class DagTest(unittest.TestCase):
 
-    def test_parms_not_passed_is_empty_dict(self):
+    def test_params_not_passed_is_empty_dict(self):
         """
         Test that when 'params' is _not_ passed to a new Dag, that the params
         attribute is set to an empty dictionary.
@@ -214,6 +214,12 @@ class DagTest(unittest.TestCase):
 
         self.assertEquals(tuple(), dag.topological_sort())
 
+    def test_dag_naive_default_args_start_date(self):
+        dag = DAG('DAG', default_args={'start_date': datetime.datetime(2018, 1, 1)})
+        self.assertEqual(dag.timezone, settings.TIMEZONE)
+        dag = DAG('DAG', start_date=datetime.datetime(2018, 1, 1))
+        self.assertEqual(dag.timezone, settings.TIMEZONE)
+
     def test_dag_none_default_args_start_date(self):
         """
         Tests if a start_date of None in default_args
@@ -310,7 +316,6 @@ class DagTest(unittest.TestCase):
                  default_args={'owner': 'owner1'}) as dag:
             with self.assertRaises(AirflowException):
                 DummyOperator(task_id='should_fail', weight_rule='no rule')
-
 
     def test_get_num_task_instances(self):
         test_dag_id = 'test_get_num_task_instances_dag'
@@ -545,6 +550,96 @@ class DagTest(unittest.TestCase):
         with self.assertRaises(AirflowDagCycleException):
             dag.test_cycle()
 
+    def test_following_previous_schedule(self):
+        """
+        Make sure DST transitions are properly observed
+        """
+        local_tz = pendulum.timezone('Europe/Zurich')
+        start = local_tz.convert(datetime.datetime(2018, 10, 28, 2, 55),
+                                 dst_rule=pendulum.PRE_TRANSITION)
+        self.assertEqual(start.isoformat(), "2018-10-28T02:55:00+02:00",
+                         "Pre-condition: start date is in DST")
+
+        utc = timezone.convert_to_utc(start)
+
+        dag = DAG('tz_dag', start_date=start, schedule_interval='*/5 * * * *')
+        _next = dag.following_schedule(utc)
+        next_local = local_tz.convert(_next)
+
+        self.assertEqual(_next.isoformat(), "2018-10-28T01:00:00+00:00")
+        self.assertEqual(next_local.isoformat(), "2018-10-28T02:00:00+01:00")
+
+        prev = dag.previous_schedule(utc)
+        prev_local = local_tz.convert(prev)
+
+        self.assertEqual(prev_local.isoformat(), "2018-10-28T02:50:00+02:00")
+
+        prev = dag.previous_schedule(_next)
+        prev_local = local_tz.convert(prev)
+
+        self.assertEqual(prev_local.isoformat(), "2018-10-28T02:55:00+02:00")
+        self.assertEqual(prev, utc)
+
+    def test_following_previous_schedule_daily_dag_CEST_to_CET(self):
+        """
+        Make sure DST transitions are properly observed
+        """
+        local_tz = pendulum.timezone('Europe/Zurich')
+        start = local_tz.convert(datetime.datetime(2018, 10, 27, 3),
+                                 dst_rule=pendulum.PRE_TRANSITION)
+
+        utc = timezone.convert_to_utc(start)
+
+        dag = DAG('tz_dag', start_date=start, schedule_interval='0 3 * * *')
+
+        prev = dag.previous_schedule(utc)
+        prev_local = local_tz.convert(prev)
+
+        self.assertEqual(prev_local.isoformat(), "2018-10-26T03:00:00+02:00")
+        self.assertEqual(prev.isoformat(), "2018-10-26T01:00:00+00:00")
+
+        _next = dag.following_schedule(utc)
+        next_local = local_tz.convert(_next)
+
+        self.assertEqual(next_local.isoformat(), "2018-10-28T03:00:00+01:00")
+        self.assertEqual(_next.isoformat(), "2018-10-28T02:00:00+00:00")
+
+        prev = dag.previous_schedule(_next)
+        prev_local = local_tz.convert(prev)
+
+        self.assertEqual(prev_local.isoformat(), "2018-10-27T03:00:00+02:00")
+        self.assertEqual(prev.isoformat(), "2018-10-27T01:00:00+00:00")
+
+    def test_following_previous_schedule_daily_dag_CET_to_CEST(self):
+        """
+        Make sure DST transitions are properly observed
+        """
+        local_tz = pendulum.timezone('Europe/Zurich')
+        start = local_tz.convert(datetime.datetime(2018, 3, 25, 2),
+                                 dst_rule=pendulum.PRE_TRANSITION)
+
+        utc = timezone.convert_to_utc(start)
+
+        dag = DAG('tz_dag', start_date=start, schedule_interval='0 3 * * *')
+
+        prev = dag.previous_schedule(utc)
+        prev_local = local_tz.convert(prev)
+
+        self.assertEqual(prev_local.isoformat(), "2018-03-24T03:00:00+01:00")
+        self.assertEqual(prev.isoformat(), "2018-03-24T02:00:00+00:00")
+
+        _next = dag.following_schedule(utc)
+        next_local = local_tz.convert(_next)
+
+        self.assertEqual(next_local.isoformat(), "2018-03-25T03:00:00+02:00")
+        self.assertEqual(_next.isoformat(), "2018-03-25T01:00:00+00:00")
+
+        prev = dag.previous_schedule(_next)
+        prev_local = local_tz.convert(prev)
+
+        self.assertEqual(prev_local.isoformat(), "2018-03-24T03:00:00+01:00")
+        self.assertEqual(prev.isoformat(), "2018-03-24T02:00:00+00:00")
+
 
 class DagStatTest(unittest.TestCase):
     def test_dagstats_crud(self):
@@ -594,6 +689,7 @@ class DagStatTest(unittest.TestCase):
         res = qry2.all()
         for stat in res:
             self.assertFalse(stat.dirty)
+
 
 class DagRunTest(unittest.TestCase):
 
@@ -801,7 +897,26 @@ class DagRunTest(unittest.TestCase):
         dr.update_state()
         self.assertEqual(dr.state, State.FAILED)
 
-    def test_dagrun_no_deadlock(self):
+    def test_dagrun_no_deadlock_with_shutdown(self):
+        session = settings.Session()
+        dag = DAG('test_dagrun_no_deadlock_with_shutdown',
+                  start_date=DEFAULT_DATE)
+        with dag:
+            op1 = DummyOperator(task_id='upstream_task')
+            op2 = DummyOperator(task_id='downstream_task')
+            op2.set_upstream(op1)
+
+        dr = dag.create_dagrun(run_id='test_dagrun_no_deadlock_with_shutdown',
+                               state=State.RUNNING,
+                               execution_date=DEFAULT_DATE,
+                               start_date=DEFAULT_DATE)
+        upstream_ti = dr.get_task_instance(task_id='upstream_task')
+        upstream_ti.set_state(State.SHUTDOWN, session=session)
+
+        dr.update_state()
+        self.assertEqual(dr.state, State.RUNNING)
+
+    def test_dagrun_no_deadlock_with_depends_on_past(self):
         session = settings.Session()
         dag = DAG('test_dagrun_no_deadlock',
                   start_date=DEFAULT_DATE)
@@ -896,6 +1011,124 @@ class DagRunTest(unittest.TestCase):
         updated_dag_state = dag_run.update_state()
         self.assertEqual(State.FAILED, updated_dag_state)
 
+    def test_dagrun_set_state_end_date(self):
+        session = settings.Session()
+
+        dag = DAG(
+            'test_dagrun_set_state_end_date',
+            start_date=DEFAULT_DATE,
+            default_args={'owner': 'owner1'})
+
+        dag.clear()
+
+        now = timezone.utcnow()
+        dr = dag.create_dagrun(run_id='test_dagrun_set_state_end_date',
+                               state=State.RUNNING,
+                               execution_date=now,
+                               start_date=now)
+
+        # Initial end_date should be NULL
+        # State.SUCCESS and State.FAILED are all ending state and should set end_date
+        # State.RUNNING set end_date back to NULL
+        session.add(dr)
+        session.commit()
+        self.assertIsNone(dr.end_date)
+
+        dr.set_state(State.SUCCESS)
+        session.merge(dr)
+        session.commit()
+
+        dr_database = session.query(DagRun).filter(
+            DagRun.run_id == 'test_dagrun_set_state_end_date'
+        ).one()
+        self.assertIsNotNone(dr_database.end_date)
+        self.assertEqual(dr.end_date, dr_database.end_date)
+
+        dr.set_state(State.RUNNING)
+        session.merge(dr)
+        session.commit()
+
+        dr_database = session.query(DagRun).filter(
+            DagRun.run_id == 'test_dagrun_set_state_end_date'
+        ).one()
+
+        self.assertIsNone(dr_database.end_date)
+
+        dr.set_state(State.FAILED)
+        session.merge(dr)
+        session.commit()
+        dr_database = session.query(DagRun).filter(
+            DagRun.run_id == 'test_dagrun_set_state_end_date'
+        ).one()
+
+        self.assertIsNotNone(dr_database.end_date)
+        self.assertEqual(dr.end_date, dr_database.end_date)
+
+    def test_dagrun_update_state_end_date(self):
+        session = settings.Session()
+
+        dag = DAG(
+            'test_dagrun_update_state_end_date',
+            start_date=DEFAULT_DATE,
+            default_args={'owner': 'owner1'})
+
+        # A -> B
+        with dag:
+            op1 = DummyOperator(task_id='A')
+            op2 = DummyOperator(task_id='B')
+            op1.set_upstream(op2)
+
+        dag.clear()
+
+        now = timezone.utcnow()
+        dr = dag.create_dagrun(run_id='test_dagrun_update_state_end_date',
+                               state=State.RUNNING,
+                               execution_date=now,
+                               start_date=now)
+
+        # Initial end_date should be NULL
+        # State.SUCCESS and State.FAILED are all ending state and should set end_date
+        # State.RUNNING set end_date back to NULL
+        session.merge(dr)
+        session.commit()
+        self.assertIsNone(dr.end_date)
+
+        ti_op1 = dr.get_task_instance(task_id=op1.task_id)
+        ti_op1.set_state(state=State.SUCCESS, session=session)
+        ti_op2 = dr.get_task_instance(task_id=op2.task_id)
+        ti_op2.set_state(state=State.SUCCESS, session=session)
+
+        dr.update_state()
+
+        dr_database = session.query(DagRun).filter(
+            DagRun.run_id == 'test_dagrun_update_state_end_date'
+        ).one()
+        self.assertIsNotNone(dr_database.end_date)
+        self.assertEqual(dr.end_date, dr_database.end_date)
+
+        ti_op1.set_state(state=State.RUNNING, session=session)
+        ti_op2.set_state(state=State.RUNNING, session=session)
+        dr.update_state()
+
+        dr_database = session.query(DagRun).filter(
+            DagRun.run_id == 'test_dagrun_update_state_end_date'
+        ).one()
+
+        self.assertEqual(dr._state, State.RUNNING)
+        self.assertIsNone(dr.end_date)
+        self.assertIsNone(dr_database.end_date)
+
+        ti_op1.set_state(state=State.FAILED, session=session)
+        ti_op2.set_state(state=State.FAILED, session=session)
+        dr.update_state()
+
+        dr_database = session.query(DagRun).filter(
+            DagRun.run_id == 'test_dagrun_update_state_end_date'
+        ).one()
+
+        self.assertIsNotNone(dr_database.end_date)
+        self.assertEqual(dr.end_date, dr_database.end_date)
+
     def test_get_task_instance_on_empty_dagrun(self):
         """
         Make sure that a proper value is returned when a dagrun has no task instances
@@ -976,6 +1209,7 @@ class DagRunTest(unittest.TestCase):
         flaky_ti.refresh_from_db()
         self.assertEquals(State.NONE, flaky_ti.state)
 
+
 class DagBagTest(unittest.TestCase):
 
     def test_get_existing_dag(self):
@@ -1037,6 +1271,19 @@ class DagBagTest(unittest.TestCase):
         dagbag = models.DagBag()
         dagbag.process_file(os.path.join(TEST_DAGS_FOLDER, "test_zip.zip"))
         self.assertTrue(dagbag.get_dag("test_zip_dag"))
+
+    def test_process_file_cron_validity_check(self):
+        """
+        test if an invalid cron expression
+        as schedule interval can be identified
+        """
+        invalid_dag_files = ["test_invalid_cron.py", "test_zip_invalid_cron.zip"]
+        dagbag = models.DagBag(dag_folder=mkdtemp())
+
+        self.assertEqual(len(dagbag.import_errors), 0)
+        for d in invalid_dag_files:
+            dagbag.process_file(os.path.join(TEST_DAGS_FOLDER, d))
+        self.assertEqual(len(dagbag.import_errors), len(invalid_dag_files))
 
     @patch.object(DagModel,'get_current')
     def test_get_dag_without_refresh(self, mock_dagmodel):
@@ -1435,6 +1682,32 @@ class DagBagTest(unittest.TestCase):
                                    configuration.getboolean('core', 'unit_test_mode'),
                                    ANY)
 
+    def test_deactivate_unknown_dags(self):
+        """
+        Test that dag_ids not passed into deactivate_unknown_dags
+        are deactivated when function is invoked
+        """
+        dagbag = models.DagBag(include_examples=True)
+        expected_active_dags = dagbag.dags.keys()
+
+        session = settings.Session
+        session.add(DagModel(dag_id='test_deactivate_unknown_dags', is_active=True))
+        session.commit()
+
+        models.DAG.deactivate_unknown_dags(expected_active_dags)
+
+        for dag in session.query(DagModel).all():
+            if dag.dag_id in expected_active_dags:
+                self.assertTrue(dag.is_active)
+            else:
+                self.assertEquals(dag.dag_id, 'test_deactivate_unknown_dags')
+                self.assertFalse(dag.is_active)
+
+        # clean up
+        session.query(DagModel).filter(DagModel.dag_id == 'test_deactivate_unknown_dags').delete()
+        session.commit()
+
+
 class TaskInstanceTest(unittest.TestCase):
 
     def test_set_task_dates(self):
@@ -1498,6 +1771,16 @@ class TaskInstanceTest(unittest.TestCase):
         utc_date = timezone.convert_to_utc(execution_date)
         ti = TI(task=op1, execution_date=execution_date)
         self.assertEquals(ti.execution_date, utc_date)
+
+    def test_task_naive_datetime(self):
+        NAIVE_DATETIME = DEFAULT_DATE.replace(tzinfo=None)
+
+        op_no_dag = DummyOperator(task_id='test_task_naive_datetime',
+                                  start_date=NAIVE_DATETIME,
+                                  end_date=NAIVE_DATETIME)
+
+        self.assertTrue(op_no_dag.start_date.tzinfo)
+        self.assertTrue(op_no_dag.end_date.tzinfo)
 
     def test_set_dag(self):
         """
@@ -2092,6 +2375,20 @@ class TaskInstanceTest(unittest.TestCase):
         self.assertEqual(d['task_id'][0], 'op')
         self.assertEqual(pendulum.parse(d['execution_date'][0]), now)
 
+    @patch('airflow.settings.RBAC', True)
+    def test_log_url_rbac(self):
+        dag = DAG('dag', start_date=DEFAULT_DATE)
+        task = DummyOperator(task_id='op', dag=dag)
+        ti = TI(task=task, execution_date=datetime.datetime(2018, 1, 1))
+
+        expected_url = (
+            'http://localhost:8080/log?'
+            'execution_date=2018-01-01T00%3A00%3A00%2B00%3A00'
+            '&task_id=op'
+            '&dag_id=dag'
+        )
+        self.assertEqual(ti.log_url, expected_url)
+
     def test_mark_success_url(self):
         now = pendulum.now('Europe/Brussels')
         dag = DAG('dag', start_date=DEFAULT_DATE)
@@ -2133,6 +2430,40 @@ class TaskInstanceTest(unittest.TestCase):
         ti.overwrite_params_with_dag_run_conf(params, dag_run)
 
         self.assertEqual(False, params["override"])
+
+    def test_success_callbak_no_race_condition(self):
+        class CallbackWrapper(object):
+            def wrap_task_instance(self, ti):
+                self.task_id = ti.task_id
+                self.dag_id = ti.dag_id
+                self.execution_date = ti.execution_date
+                self.task_state_in_callback = ""
+                self.callback_ran = False
+
+            def success_handler(self, context):
+                self.callback_ran = True
+                session = settings.Session()
+                temp_instance = session.query(TI).filter(
+                    TI.task_id == self.task_id).filter(
+                    TI.dag_id == self.dag_id).filter(
+                    TI.execution_date == self.execution_date).one()
+                self.task_state_in_callback = temp_instance.state
+        cw = CallbackWrapper()
+        dag = DAG('test_success_callbak_no_race_condition', start_date=DEFAULT_DATE,
+                  end_date=DEFAULT_DATE + datetime.timedelta(days=10))
+        task = DummyOperator(task_id='op', email='test@test.test',
+                             on_success_callback=cw.success_handler, dag=dag)
+        ti = TI(task=task, execution_date=datetime.datetime.now())
+        ti.state = State.RUNNING
+        session = settings.Session()
+        session.merge(ti)
+        session.commit()
+        cw.wrap_task_instance(ti)
+        ti._run_raw_task()
+        self.assertTrue(cw.callback_ran)
+        self.assertEqual(cw.task_state_in_callback, State.RUNNING)
+        ti.refresh_from_db()
+        self.assertEqual(ti.state, State.SUCCESS)
 
 
 class ClearTasksTest(unittest.TestCase):
@@ -2442,6 +2773,7 @@ class ClearTasksTest(unittest.TestCase):
         for result in results:
             self.assertEqual(result.value, json_obj)
 
+
 class ConnectionTest(unittest.TestCase):
     @patch.object(configuration, 'get')
     def test_connection_extra_no_encryption(self, mock_get):
@@ -2450,7 +2782,6 @@ class ConnectionTest(unittest.TestCase):
         is set to a non-base64-encoded string and the extra is stored without
         encryption.
         """
-        mock_get.return_value = 'cryptography_not_found_storing_passwords_in_plain_text'
         test_connection = Connection(extra='testextra')
         self.assertEqual(test_connection.extra, 'testextra')
 

@@ -46,31 +46,47 @@ volume_config= {
 volume = Volume(name='test-volume', configs=volume_config)
 
 model_name = '{{ model_name }}'
-t1 = KubernetesPodOperator(task_id="train_and_save", dag=dag, in_cluster=True, volume_mounts=[volume_mount],
+
+t0 = DummyOperator(task_id="run_this_first", dag=dag)
+
+def ifCleanup():
+    if {{ cleanup }}:
+        return 'cleanup'
+    else:
+        return 'train_and_save'
+
+cleanup_branch = BranchPythonOperator(task_id="cleanup_branch", dag=dag, python_callable=ifCleanup)
+
+t1 = KubernetesPodOperator(task_id="cleanup", dag=dag, in_cluster=True, namespace='default',
+                           name="{}-restapi".format(model_name.lower()), cleanup=True, image='airflow:latest')
+
+t2 = KubernetesPodOperator(task_id="train_and_save", dag=dag, in_cluster=True, volume_mounts=[volume_mount],
                            namespace='default', name="{}-trainer".format(model_name.lower()), volumes=[volume],
                            image='tensorflow:latest', arguments=['python', '/root/runtime/run_job.py'])
 
 def model_exist():
-    if {{ not_serve }} or os.path.isdir('/root/airflow/runtime/models/{}'.format(model_name)):
+    if {{ not_serve }} or os.path.isdir('/root/airflow/runtime/{}/models/{}'.format('{{ subpath }}', model_name)):
         return 'update_version_or_not_serve'
     else:
         return 'serve_model'
 
 
-branch = BranchPythonOperator(
+serve_branch = BranchPythonOperator(
     task_id="serve_or_not", python_callable=model_exist, dag=dag
 )
 
-t2 = KubernetesPodOperator(namespace="default", name="{}-restapi".format(model_name.lower()), image="tensorflow/serving:latest",
-                           env_vars={'MODEL_NAME':'saved_model', 'MODEL_BASE_PATH':'/root/runtime'},
+t3 = KubernetesPodOperator(namespace="default", name="{}-restapi".format(model_name.lower()), image="tensorflow/serving:latest",
+                           env_vars={'MODEL_NAME':'saved_model', 'MODEL_BASE_PATH':'/root/runtime/models'},
                            task_id="serve_model", port=8501, dag=dag, async=True, in_cluster=True,
                            labels={'name':'{}-restapi'.format(model_name.lower())},
                            volume_mounts=[volume_mount], volumes=[volume])
 
-t3 = DummyOperator(
+t4 = DummyOperator(
     task_id="update_version_or_not_serve", dag=dag
 )
-
-t1.set_downstream(branch)
-branch.set_downstream(t2)
-branch.set_downstream(t3)
+t0.set_downstream(cleanup_branch)
+cleanup_branch.set_downstream(t1)
+cleanup_branch.set_downstream(t2)
+t2.set_downstream(serve_branch)
+serve_branch.set_downstream(t3)
+serve_branch.set_downstream(t4)

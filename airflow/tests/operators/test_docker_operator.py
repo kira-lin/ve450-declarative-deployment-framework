@@ -7,9 +7,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -51,7 +51,7 @@ class DockerOperatorTestCase(unittest.TestCase):
         client_mock.images.return_value = []
         client_mock.logs.return_value = ['container log']
         client_mock.pull.return_value = [b'{"status":"pull log"}']
-        client_mock.wait.return_value = 0
+        client_mock.wait.return_value = {"StatusCode": 0}
 
         client_class_mock.return_value = client_mock
 
@@ -64,20 +64,24 @@ class DockerOperatorTestCase(unittest.TestCase):
         client_class_mock.assert_called_with(base_url='unix://var/run/docker.sock', tls=None,
                                              version='1.19')
 
-        client_mock.create_container.assert_called_with(command='env', cpu_shares=1024,
+        client_mock.create_container.assert_called_with(command='env',
                                                         environment={
                                                             'AIRFLOW_TMP_DIR': '/tmp/airflow',
                                                             'UNIT': 'TEST'
                                                         },
                                                         host_config=host_config,
                                                         image='ubuntu:latest',
-                                                        mem_limit=None, user=None,
+                                                        user=None,
                                                         working_dir='/container/path'
                                                         )
         client_mock.create_host_config.assert_called_with(binds=['/host/path:/container/path',
                                                                  '/mkdtemp:/tmp/airflow'],
                                                           network_mode='bridge',
-                                                          shm_size=1000)
+                                                          shm_size=1000,
+                                                          cpu_shares=1024,
+                                                          mem_limit=None,
+                                                          dns=None,
+                                                          dns_search=None)
         client_mock.images.assert_called_with(name='ubuntu:latest')
         client_mock.logs.assert_called_with(container='some_id', stream=True)
         client_mock.pull.assert_called_with('ubuntu:latest', stream=True)
@@ -92,7 +96,7 @@ class DockerOperatorTestCase(unittest.TestCase):
         client_mock.images.return_value = []
         client_mock.logs.return_value = []
         client_mock.pull.return_value = []
-        client_mock.wait.return_value = 0
+        client_mock.wait.return_value = {"StatusCode": 0}
 
         client_class_mock.return_value = client_mock
         tls_mock = mock.Mock()
@@ -118,7 +122,7 @@ class DockerOperatorTestCase(unittest.TestCase):
         client_mock.images.return_value = []
         client_mock.logs.return_value = ['unicode container log 😁']
         client_mock.pull.return_value = []
-        client_mock.wait.return_value = 0
+        client_mock.wait.return_value = {"StatusCode": 0}
 
         client_class_mock.return_value = client_mock
 
@@ -140,7 +144,7 @@ class DockerOperatorTestCase(unittest.TestCase):
         client_mock.images.return_value = []
         client_mock.logs.return_value = []
         client_mock.pull.return_value = []
-        client_mock.wait.return_value = 1
+        client_mock.wait.return_value = {"StatusCode": 1}
 
         client_class_mock.return_value = client_mock
 
@@ -168,7 +172,7 @@ class DockerOperatorTestCase(unittest.TestCase):
         client_mock.create_container.return_value = {'Id': 'some_id'}
         client_mock.logs.return_value = []
         client_mock.pull.return_value = []
-        client_mock.wait.return_value = 0
+        client_mock.wait.return_value = {"StatusCode": 0}
         operator_client_mock.return_value = client_mock
 
         # Create the DockerOperator
@@ -203,7 +207,7 @@ class DockerOperatorTestCase(unittest.TestCase):
         client_mock.create_container.return_value = {'Id': 'some_id'}
         client_mock.logs.return_value = []
         client_mock.pull.return_value = []
-        client_mock.wait.return_value = 0
+        client_mock.wait.return_value = {"StatusCode": 0}
         operator_client_mock.return_value = client_mock
 
         # Create the DockerOperator
@@ -233,6 +237,7 @@ class DockerOperatorTestCase(unittest.TestCase):
             client_mock.pull.call_count, 1,
             'Image was not pulled using operator client'
         )
+
 
 if __name__ == "__main__":
     unittest.main()

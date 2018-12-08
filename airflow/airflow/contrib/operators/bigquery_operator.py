@@ -81,18 +81,19 @@ class BigQueryOperator(BaseOperator):
     :param query_params: a dictionary containing query parameter types and
         values, passed to BigQuery.
     :type query_params: dict
+    :param labels: a dictionary containing labels for the job/query,
+        passed to BigQuery
+    :type labels: dict
     :param priority: Specifies a priority for the query.
         Possible values include INTERACTIVE and BATCH.
         The default value is INTERACTIVE.
     :type priority: string
     :param time_partitioning: configure optional time partitioning fields i.e.
-        partition by field, type and
-        expiration as per API specifications. Note that 'field' is not available in
-        conjunction with dataset.table$partition.
+        partition by field, type and expiration as per API specifications.
     :type time_partitioning: dict
     """
 
-    template_fields = ('bql', 'sql', 'destination_dataset_table')
+    template_fields = ('bql', 'sql', 'destination_dataset_table', 'labels')
     template_ext = ('.sql', )
     ui_color = '#e4f0e8'
 
@@ -103,7 +104,7 @@ class BigQueryOperator(BaseOperator):
                  destination_dataset_table=False,
                  write_disposition='WRITE_EMPTY',
                  allow_large_results=False,
-                 flatten_results=False,
+                 flatten_results=None,
                  bigquery_conn_id='bigquery_default',
                  delegate_to=None,
                  udf_config=False,
@@ -113,6 +114,7 @@ class BigQueryOperator(BaseOperator):
                  create_disposition='CREATE_IF_NEEDED',
                  schema_update_options=(),
                  query_params=None,
+                 labels=None,
                  priority='INTERACTIVE',
                  time_partitioning={},
                  *args,
@@ -133,6 +135,7 @@ class BigQueryOperator(BaseOperator):
         self.maximum_bytes_billed = maximum_bytes_billed
         self.schema_update_options = schema_update_options
         self.query_params = query_params
+        self.labels = labels
         self.bq_cursor = None
         self.priority = priority
         self.time_partitioning = time_partitioning
@@ -171,6 +174,7 @@ class BigQueryOperator(BaseOperator):
             maximum_bytes_billed=self.maximum_bytes_billed,
             create_disposition=self.create_disposition,
             query_params=self.query_params,
+            labels=self.labels,
             schema_update_options=self.schema_update_options,
             priority=self.priority,
             time_partitioning=self.time_partitioning
@@ -228,49 +232,52 @@ class BigQueryCreateEmptyTableOperator(BaseOperator):
         work, the service account making the request must have domain-wide
         delegation enabled.
     :type delegate_to: string
+    :param labels: a dictionary containing labels for the table, passed to BigQuery
 
-    **Example (with schema JSON in GCS)**: ::
+        **Example (with schema JSON in GCS)**: ::
 
-        CreateTable = BigQueryCreateEmptyTableOperator(
-            task_id='BigQueryCreateEmptyTableOperator_task',
-            dataset_id='ODS',
-            table_id='Employees',
-            project_id='internal-gcp-project',
-            gcs_schema_object='gs://schema-bucket/employee_schema.json',
-            bigquery_conn_id='airflow-service-account',
-            google_cloud_storage_conn_id='airflow-service-account'
-        )
+            CreateTable = BigQueryCreateEmptyTableOperator(
+                task_id='BigQueryCreateEmptyTableOperator_task',
+                dataset_id='ODS',
+                table_id='Employees',
+                project_id='internal-gcp-project',
+                gcs_schema_object='gs://schema-bucket/employee_schema.json',
+                bigquery_conn_id='airflow-service-account',
+                google_cloud_storage_conn_id='airflow-service-account'
+            )
 
-    **Corresponding Schema file** (``employee_schema.json``): ::
+        **Corresponding Schema file** (``employee_schema.json``): ::
 
-        [
-          {
-            "mode": "NULLABLE",
-            "name": "emp_name",
-            "type": "STRING"
-          },
-          {
-            "mode": "REQUIRED",
-            "name": "salary",
-            "type": "INTEGER"
-          }
-        ]
+            [
+              {
+                "mode": "NULLABLE",
+                "name": "emp_name",
+                "type": "STRING"
+              },
+              {
+                "mode": "REQUIRED",
+                "name": "salary",
+                "type": "INTEGER"
+              }
+            ]
 
-    **Example (with schema in the DAG)**: ::
+        **Example (with schema in the DAG)**: ::
 
-        CreateTable = BigQueryCreateEmptyTableOperator(
-            task_id='BigQueryCreateEmptyTableOperator_task',
-            dataset_id='ODS',
-            table_id='Employees',
-            project_id='internal-gcp-project',
-            schema_fields=[{"name": "emp_name", "type": "STRING", "mode": "REQUIRED"},
-                           {"name": "salary", "type": "INTEGER", "mode": "NULLABLE"}],
-            bigquery_conn_id='airflow-service-account',
-            google_cloud_storage_conn_id='airflow-service-account'
-        )
+            CreateTable = BigQueryCreateEmptyTableOperator(
+                task_id='BigQueryCreateEmptyTableOperator_task',
+                dataset_id='ODS',
+                table_id='Employees',
+                project_id='internal-gcp-project',
+                schema_fields=[{"name": "emp_name", "type": "STRING", "mode": "REQUIRED"},
+                               {"name": "salary", "type": "INTEGER", "mode": "NULLABLE"}],
+                bigquery_conn_id='airflow-service-account',
+                google_cloud_storage_conn_id='airflow-service-account'
+            )
+    :type labels: dict
 
     """
-    template_fields = ('dataset_id', 'table_id', 'project_id', 'gcs_schema_object')
+    template_fields = ('dataset_id', 'table_id', 'project_id',
+                       'gcs_schema_object', 'labels')
     ui_color = '#f0eee4'
 
     @apply_defaults
@@ -284,6 +291,7 @@ class BigQueryCreateEmptyTableOperator(BaseOperator):
                  bigquery_conn_id='bigquery_default',
                  google_cloud_storage_conn_id='google_cloud_default',
                  delegate_to=None,
+                 labels=None,
                  *args, **kwargs):
 
         super(BigQueryCreateEmptyTableOperator, self).__init__(*args, **kwargs)
@@ -297,6 +305,7 @@ class BigQueryCreateEmptyTableOperator(BaseOperator):
         self.google_cloud_storage_conn_id = google_cloud_storage_conn_id
         self.delegate_to = delegate_to
         self.time_partitioning = time_partitioning
+        self.labels = labels
 
     def execute(self, context):
         bq_hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id,
@@ -323,7 +332,8 @@ class BigQueryCreateEmptyTableOperator(BaseOperator):
             dataset_id=self.dataset_id,
             table_id=self.table_id,
             schema_fields=schema_fields,
-            time_partitioning=self.time_partitioning
+            time_partitioning=self.time_partitioning,
+            labels=self.labels
         )
 
 
@@ -396,9 +406,11 @@ class BigQueryCreateExternalTableOperator(BaseOperator):
     :type delegate_to: string
     :param src_fmt_configs: configure optional fields specific to the source format
     :type src_fmt_configs: dict
+    :param labels a dictionary containing labels for the table, passed to BigQuery
+    :type labels: dict
     """
     template_fields = ('bucket', 'source_objects',
-                       'schema_object', 'destination_project_dataset_table')
+                       'schema_object', 'destination_project_dataset_table', 'labels')
     ui_color = '#f0eee4'
 
     @apply_defaults
@@ -420,6 +432,7 @@ class BigQueryCreateExternalTableOperator(BaseOperator):
                  google_cloud_storage_conn_id='google_cloud_default',
                  delegate_to=None,
                  src_fmt_configs={},
+                 labels=None,
                  *args, **kwargs):
 
         super(BigQueryCreateExternalTableOperator, self).__init__(*args, **kwargs)
@@ -446,6 +459,7 @@ class BigQueryCreateExternalTableOperator(BaseOperator):
         self.delegate_to = delegate_to
 
         self.src_fmt_configs = src_fmt_configs
+        self.labels = labels
 
     def execute(self, context):
         bq_hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id,
@@ -479,5 +493,58 @@ class BigQueryCreateExternalTableOperator(BaseOperator):
             quote_character=self.quote_character,
             allow_quoted_newlines=self.allow_quoted_newlines,
             allow_jagged_rows=self.allow_jagged_rows,
-            src_fmt_configs=self.src_fmt_configs
+            src_fmt_configs=self.src_fmt_configs,
+            labels=self.labels
+        )
+
+
+class BigQueryDeleteDatasetOperator(BaseOperator):
+    """"
+    This operator deletes an existing dataset from your Project in Big query.
+    https://cloud.google.com/bigquery/docs/reference/rest/v2/datasets/delete
+    :param project_id: The project id of the dataset.
+    :type project_id: string
+    :param dataset_id: The dataset to be deleted.
+    :type dataset_id: string
+
+    **Example**: ::
+
+        delete_temp_data = BigQueryDeleteDatasetOperator(
+                                        dataset_id = 'temp-dataset',
+                                        project_id = 'temp-project',
+                                        bigquery_conn_id='_my_gcp_conn_',
+                                        task_id='Deletetemp',
+                                        dag=dag)
+    """
+
+    template_fields = ('dataset_id', 'project_id')
+    ui_color = '#f00004'
+
+    @apply_defaults
+    def __init__(self,
+                 dataset_id,
+                 project_id=None,
+                 bigquery_conn_id='bigquery_default',
+                 delegate_to=None,
+                 *args, **kwargs):
+        self.dataset_id = dataset_id
+        self.project_id = project_id
+        self.bigquery_conn_id = bigquery_conn_id
+        self.delegate_to = delegate_to
+
+        self.log.info('Dataset id: %s', self.dataset_id)
+        self.log.info('Project id: %s', self.project_id)
+
+        super(BigQueryDeleteDatasetOperator, self).__init__(*args, **kwargs)
+
+    def execute(self, context):
+        bq_hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id,
+                               delegate_to=self.delegate_to)
+
+        conn = bq_hook.get_conn()
+        cursor = conn.cursor()
+
+        cursor.delete_dataset(
+            project_id=self.project_id,
+            dataset_id=self.dataset_id
         )

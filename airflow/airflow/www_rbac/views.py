@@ -32,7 +32,6 @@ import traceback
 import markdown
 import nvd3
 import pendulum
-from hashlib import md5
 
 import sqlalchemy as sqla
 from sqlalchemy import or_, desc, and_, union_all
@@ -43,9 +42,7 @@ from flask import (
 from flask._compat import PY2
 
 from flask_appbuilder import BaseView, ModelView, expose, has_access
-from flask_appbuilder.models.sqla.interface import SQLAInterface
 from flask_appbuilder.actions import action
-
 from flask_babel import lazy_gettext
 
 from wtforms import Form, SelectField, validators
@@ -289,17 +286,13 @@ class Airflow(AirflowBaseView):
         for dag in dagbag.dags.values():
             payload[dag.safe_dag_id] = []
             for state in State.dag_states:
-                try:
-                    count = data[dag.dag_id][state]
-                except Exception:
-                    count = 0
-                d = {
+                count = data.get(dag.dag_id, {}).get(state, 0)
+                payload[dag.safe_dag_id].append({
                     'state': state,
                     'count': count,
                     'dag_id': dag.dag_id,
                     'color': State.color(state)
-                }
-                payload[dag.safe_dag_id].append(d)
+                })
         return wwwutils.json_response(payload)
 
     @expose('/task_stats')
@@ -360,17 +353,13 @@ class Airflow(AirflowBaseView):
         for dag in dagbag.dags.values():
             payload[dag.safe_dag_id] = []
             for state in State.task_states:
-                try:
-                    count = data[dag.dag_id][state]
-                except Exception:
-                    count = 0
-                d = {
+                count = data.get(dag.dag_id, {}).get(state, 0)
+                payload[dag.safe_dag_id].append({
                     'state': state,
                     'count': count,
                     'dag_id': dag.dag_id,
                     'color': State.color(state)
-                }
-                payload[dag.safe_dag_id].append(d)
+                })
         return wwwutils.json_response(payload)
 
     @expose('/code')
@@ -380,7 +369,7 @@ class Airflow(AirflowBaseView):
         dag = dagbag.get_dag(dag_id)
         title = dag_id
         try:
-            with open(dag.fileloc, 'r') as f:
+            with wwwutils.open_maybe_zipped(dag.fileloc, 'r') as f:
                 code = f.read()
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
@@ -728,6 +717,33 @@ class Airflow(AirflowBaseView):
             "it should start any moment now.".format(ti))
         return redirect(origin)
 
+    @expose('/delete')
+    @action_logging
+    @has_access
+    def delete(self):
+        from airflow.api.common.experimental import delete_dag
+        from airflow.exceptions import DagNotFound, DagFileExists
+
+        dag_id = request.args.get('dag_id')
+        origin = request.args.get('origin') or "/"
+
+        try:
+            delete_dag.delete_dag(dag_id)
+        except DagNotFound:
+            flash("DAG with id {} not found. Cannot delete".format(dag_id), 'error')
+            return redirect(request.referrer)
+        except DagFileExists:
+            flash("Dag id {} is still in DagBag. "
+                  "Remove the DAG file first.".format(dag_id),
+                  'error')
+            return redirect(request.referrer)
+
+        flash("Deleting DAG with id {}. May take a couple minutes to fully"
+              " disappear.".format(dag_id))
+
+        # Upon success return to origin.
+        return redirect(origin)
+
     @expose('/trigger')
     @has_access
     @action_logging
@@ -769,7 +785,9 @@ class Airflow(AirflowBaseView):
             count = dag.clear(
                 start_date=start_date,
                 end_date=end_date,
-                include_subdags=recursive)
+                include_subdags=recursive,
+                include_parentdag=recursive,
+            )
 
             flash("{0} task instances have been cleared".format(count))
             return redirect(origin)
@@ -778,7 +796,9 @@ class Airflow(AirflowBaseView):
             start_date=start_date,
             end_date=end_date,
             include_subdags=recursive,
-            dry_run=True)
+            include_parentdag=recursive,
+            dry_run=True,
+        )
         if not tis:
             flash("No task instances to clear", 'error')
             response = redirect(origin)
@@ -961,6 +981,10 @@ class Airflow(AirflowBaseView):
         dag_id = request.args.get('dag_id')
         blur = conf.getboolean('webserver', 'demo_mode')
         dag = dagbag.get_dag(dag_id)
+        if dag_id not in dagbag.dags:
+            flash('DAG "{0}" seems to be missing.'.format(dag_id), "error")
+            return redirect('/')
+
         root = request.args.get('root')
         if root:
             dag = dag.sub_dag(
@@ -1558,9 +1582,10 @@ class Airflow(AirflowBaseView):
     @provide_session
     def dagimport(self, session=None):
         if 'file' not in request.files:
-            flash('No file part')
+            flash('No file uploaded')
         else:
             try:
+                from hashlib import md5
                 file = request.files['file']
                 filenames = file.filename.rsplit('.', 1)
                 if filenames[1].lower() == 'py':
@@ -1574,6 +1599,7 @@ class Airflow(AirflowBaseView):
                         fout.write(request.files['file'].read())
                     dagbag.parse_from_yaml(path, g.user)
                     dagbag.collect_dags(only_if_updated=False)
+                    flash("DAG created. It may take a minute for UI to show it.")
                 else:
                     flash('Only zip and py format is allowed!')
             except Exception as e:
@@ -1647,27 +1673,7 @@ class AirflowModelView(ModelView):
     list_widget = AirflowModelListWidget
     page_size = PAGE_SIZE
 
-    class CustomSQLAInterface(SQLAInterface):
-        """
-        FAB does not know how to handle columns with leading underscores because
-        they are not supported by WTForm. This hack will remove the leading
-        '_' from the key to lookup the column names.
-
-        """
-        def __init__(self, obj):
-            super(AirflowModelView.CustomSQLAInterface, self).__init__(obj)
-
-            self.session = settings.Session()
-
-            def clean_column_names():
-                if self.list_properties:
-                    self.list_properties = dict(
-                        (k.lstrip('_'), v) for k, v in self.list_properties.items())
-                if self.list_columns:
-                    self.list_columns = dict(
-                        (k.lstrip('_'), v) for k, v in self.list_columns.items())
-
-            clean_column_names()
+    CustomSQLAInterface = wwwutils.CustomSQLAInterface
 
 
 class SlaMissModelView(AirflowModelView):
@@ -1753,6 +1759,11 @@ class ConnectionModelView(AirflowModelView):
             d = json.loads(form.data.get('extra', '{}'))
         except Exception:
             d = {}
+
+        if not hasattr(d, 'get'):
+            logging.warning('extra field for {} is not iterable'.format(
+                form.data.get('conn_id', '<unknown>')))
+            return
 
         for field in self.extra_fields:
             value = d.get(field, '')
@@ -1893,11 +1904,20 @@ class VariableModelView(AirflowModelView):
             else:
                 d = json.loads(out)
         except Exception:
-            flash("Missing file or syntax error.")
+            flash("Missing file or syntax error.", 'error')
         else:
+            suc_count = fail_count = 0
             for k, v in d.items():
-                models.Variable.set(k, v, serialize_json=isinstance(v, dict))
-            flash("{} variable(s) successfully updated.".format(len(d)))
+                try:
+                    models.Variable.set(k, v, serialize_json=isinstance(v, dict))
+                except Exception as e:
+                    logging.info('Variable import failed: {}'.format(repr(e)))
+                    fail_count += 1
+                else:
+                    suc_count += 1
+            flash("{} variable(s) successfully updated.".format(suc_count))
+            if fail_count:
+                flash("{} variables(s) failed to be updated.".format(fail_count), 'error')
             self.update_redirect()
             return redirect(self.get_redirect())
 

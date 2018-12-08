@@ -31,7 +31,6 @@ from datetime import timedelta
 import copy
 import math
 import json
-import yaml
 import bleach
 import pendulum
 import codecs
@@ -207,7 +206,7 @@ def nobr_f(v, c, m, p):
 def label_link(v, c, m, p):
     try:
         default_params = ast.literal_eval(m.default_params)
-    except:
+    except Exception:
         default_params = {}
     url = url_for(
         'airflow.chart', chart_id=m.id, iteration_no=m.iteration_no,
@@ -267,7 +266,7 @@ def data_profiling_required(f):
     def decorated_function(*args, **kwargs):
         if (
                 current_app.config['LOGIN_DISABLED'] or
-                (not current_user.is_anonymous() and current_user.data_profiling())
+                (not current_user.is_anonymous and current_user.data_profiling())
         ):
             return f(*args, **kwargs)
         else:
@@ -405,9 +404,9 @@ class Airflow(BaseView):
         # Processing templated fields
         try:
             args = ast.literal_eval(chart.default_params)
-            if type(args) is not type(dict()):
+            if not isinstance(args, dict):
                 raise AirflowException('Not a dict')
-        except:
+        except Exception:
             args = {}
             payload['error'] += (
                 "Default params is not valid, string has to evaluate as "
@@ -449,15 +448,15 @@ class Airflow(BaseView):
         if not payload['error'] and len(df) == 0:
             payload['error'] += "Empty result set. "
         elif (
-                        not payload['error'] and
-                            chart.sql_layout == 'series' and
-                        chart.chart_type != "datatable" and
-                    len(df.columns) < 3):
+                not payload['error'] and
+                chart.sql_layout == 'series' and
+                chart.chart_type != "datatable" and
+                len(df.columns) < 3):
             payload['error'] += "SQL needs to return at least 3 columns. "
         elif (
-                    not payload['error'] and
-                        chart.sql_layout == 'columns' and
-                    len(df.columns) < 2):
+                not payload['error'] and
+                chart.sql_layout == 'columns' and
+                len(df.columns) < 2):
             payload['error'] += "SQL needs to return at least 2 columns. "
         elif not payload['error']:
             import numpy as np
@@ -580,17 +579,13 @@ class Airflow(BaseView):
         for dag in dagbag.dags.values():
             payload[dag.safe_dag_id] = []
             for state in State.dag_states:
-                try:
-                    count = data[dag.dag_id][state]
-                except Exception:
-                    count = 0
-                d = {
+                count = data.get(dag.dag_id, {}).get(state, 0)
+                payload[dag.safe_dag_id].append({
                     'state': state,
                     'count': count,
                     'dag_id': dag.dag_id,
                     'color': State.color(state)
-                }
-                payload[dag.safe_dag_id].append(d)
+                })
         return wwwutils.json_response(payload)
 
     @expose('/task_stats')
@@ -623,13 +618,13 @@ class Airflow(BaseView):
         # If no dag_run is active, return task instances from most recent dag_run.
         LastTI = (
             session.query(TI.dag_id.label('dag_id'), TI.state.label('state'))
-                .join(LastDagRun, and_(
+            .join(LastDagRun, and_(
                 LastDagRun.c.dag_id == TI.dag_id,
                 LastDagRun.c.execution_date == TI.execution_date))
         )
         RunningTI = (
             session.query(TI.dag_id.label('dag_id'), TI.state.label('state'))
-                .join(RunningDagRun, and_(
+            .join(RunningDagRun, and_(
                 RunningDagRun.c.dag_id == TI.dag_id,
                 RunningDagRun.c.execution_date == TI.execution_date))
         )
@@ -637,7 +632,7 @@ class Airflow(BaseView):
         UnionTI = union_all(LastTI, RunningTI).alias('union_ti')
         qry = (
             session.query(UnionTI.c.dag_id, UnionTI.c.state, sqla.func.count())
-                .group_by(UnionTI.c.dag_id, UnionTI.c.state)
+            .group_by(UnionTI.c.dag_id, UnionTI.c.state)
         )
 
         data = {}
@@ -651,17 +646,13 @@ class Airflow(BaseView):
         for dag in dagbag.dags.values():
             payload[dag.safe_dag_id] = []
             for state in State.task_states:
-                try:
-                    count = data[dag.dag_id][state]
-                except:
-                    count = 0
-                d = {
+                count = data.get(dag.dag_id, {}).get(state, 0)
+                payload[dag.safe_dag_id].append({
                     'state': state,
                     'count': count,
                     'dag_id': dag.dag_id,
                     'color': State.color(state)
-                }
-                payload[dag.safe_dag_id].append(d)
+                })
         return wwwutils.json_response(payload)
 
     @expose('/code')
@@ -671,7 +662,7 @@ class Airflow(BaseView):
         dag = dagbag.get_dag(dag_id)
         title = dag_id
         try:
-            with open(dag.fileloc, 'r') as f:
+            with wwwutils.open_maybe_zipped(dag.fileloc, 'r') as f:
                 code = f.read()
             html_code = highlight(
                 code, lexers.PythonLexer(), HtmlFormatter(linenos=True))
@@ -1044,6 +1035,32 @@ class Airflow(BaseView):
             "it should start any moment now.".format(ti))
         return redirect(origin)
 
+    @expose('/delete')
+    @login_required
+    @wwwutils.action_logging
+    @wwwutils.notify_owner
+    def delete(self):
+        from airflow.api.common.experimental import delete_dag
+        from airflow.exceptions import DagNotFound, DagFileExists
+
+        dag_id = request.args.get('dag_id')
+        origin = request.args.get('origin') or "/admin/"
+
+        try:
+            delete_dag.delete_dag(dag_id)
+        except DagNotFound:
+            flash("DAG with id {} not found. Cannot delete".format(dag_id))
+            return redirect(request.referrer)
+        except DagFileExists:
+            flash("Dag id {} is still in DagBag. "
+                  "Remove the DAG file first.".format(dag_id))
+            return redirect(request.referrer)
+
+        flash("Deleting DAG with id {}. May take a couple minutes to fully"
+              " disappear.".format(dag_id))
+        # Upon successful delete return to origin
+        return redirect(origin)
+
     @expose('/trigger')
     @login_required
     @wwwutils.action_logging
@@ -1086,7 +1103,9 @@ class Airflow(BaseView):
             count = dag.clear(
                 start_date=start_date,
                 end_date=end_date,
-                include_subdags=recursive)
+                include_subdags=recursive,
+                include_parentdag=recursive,
+            )
 
             flash("{0} task instances have been cleared".format(count))
             return redirect(origin)
@@ -1095,7 +1114,9 @@ class Airflow(BaseView):
             start_date=start_date,
             end_date=end_date,
             include_subdags=recursive,
-            dry_run=True)
+            dry_run=True,
+            include_parentdag=recursive,
+        )
         if not tis:
             flash("No task instances to clear", 'error')
             response = redirect(origin)
@@ -1283,6 +1304,10 @@ class Airflow(BaseView):
         dag_id = request.args.get('dag_id')
         blur = conf.getboolean('webserver', 'demo_mode')
         dag = dagbag.get_dag(dag_id)
+        if dag_id not in dagbag.dags:
+            flash('DAG "{0}" seems to be missing.'.format(dag_id), "error")
+            return redirect('/admin/')
+
         root = request.args.get('root')
         if root:
             dag = dag.sub_dag(
@@ -1537,13 +1562,13 @@ class Airflow(BaseView):
         TF = models.TaskFail
         ti_fails = (
             session
-                .query(TF)
-                .filter(
+            .query(TF)
+            .filter(
                 TF.dag_id == dag.dag_id,
                 TF.execution_date >= min_date,
                 TF.execution_date <= base_date,
                 TF.task_id.in_([t.task_id for t in dag.tasks]))
-                .all()
+            .all()
         )
 
         fails_totals = defaultdict(int)
@@ -1889,7 +1914,7 @@ class Airflow(BaseView):
                 return self.render(
                     'airflow/variables/{}.html'.format(form)
                 )
-        except:
+        except Exception:
             # prevent XSS
             form = escape(form)
             return ("Error: form airflow/variables/{}.html "
@@ -1904,31 +1929,21 @@ class Airflow(BaseView):
         except Exception as e:
             flash("Missing file or syntax error: {}.".format(e))
         else:
+            suc_count = fail_count = 0
             for k, v in d.items():
-                models.Variable.set(k, v, serialize_json=isinstance(v, dict))
-            flash("{} variable(s) successfully updated.".format(len(d)))
-        return redirect('/admin/variable')
+                try:
+                    models.Variable.set(k, v, serialize_json=isinstance(v, dict))
+                except Exception as e:
+                    logging.info('Variable import failed: {}'.format(repr(e)))
+                    fail_count += 1
+                else:
+                    suc_count += 1
+            flash("{} variable(s) successfully updated.".format(suc_count), 'info')
+            if fail_count:
+                flash(
+                    "{} variables(s) failed to be updated.".format(fail_count), 'error')
 
-    @expose('/dagimport', methods=["GET", "POST"])
-    @login_required
-    @wwwutils.action_logging
-    def dagimport(self):
-        # flash("test")
-        try:
-            f = yaml.safe_load(UTF8_READER(request.files['file']))
-            dagbag.parse_from_yaml(f)
-        except Exception as e:
-            flash("Failed to parse yaml: {}".format(e))
-        return redirect('/admin')
-        # try:
-        #     d = json.load(UTF8_READER(request.files['file']))
-        # except Exception as e:
-        #     flash("Missing file or syntax error: {}.".format(e))
-        # else:
-        #     for k, v in d.items():
-        #         models.Variable.set(k, v, serialize_json=isinstance(v, dict))
-        #     flash("{} variable(s) successfully updated.".format(len(d)))
-        # return redirect('/admin/variable')
+        return redirect('/admin/variable')
 
 
 class HomeView(AdminIndexView):
@@ -2470,7 +2485,7 @@ class VariableView(wwwutils.DataProfilingMixin, AirflowModelView):
             val = None
             try:
                 val = d.decode(var.val)
-            except:
+            except Exception:
                 val = var.val
             var_dict[var.key] = val
 
@@ -2809,7 +2824,7 @@ class ConnectionModelView(wwwutils.SuperUserMixin, AirflowModelView):
         fk = None
         try:
             fk = conf.get('core', 'fernet_key')
-        except:
+        except Exception:
             pass
         return fk is None
 
@@ -2821,10 +2836,10 @@ class ConnectionModelView(wwwutils.SuperUserMixin, AirflowModelView):
         """
         is_secure = False
         try:
-            import cryptography
+            import cryptography  # noqa F401
             conf.get('core', 'fernet_key')
             is_secure = True
-        except:
+        except Exception:
             pass
         return is_secure
 
@@ -2852,7 +2867,7 @@ class VersionView(wwwutils.SuperUserMixin, BaseView):
     def version(self):
         # Look at the version from setup.py
         try:
-            airflow_version = pkg_resources.require("apache-airflow")[0].version
+            airflow_version = airflow.__version__
         except Exception as e:
             airflow_version = None
             logging.error(e)

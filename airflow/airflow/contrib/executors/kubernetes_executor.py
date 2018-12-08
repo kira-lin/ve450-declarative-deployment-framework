@@ -39,22 +39,26 @@ from airflow.utils.log.logging_mixin import LoggingMixin
 class KubernetesExecutorConfig:
     def __init__(self, image=None, image_pull_policy=None, request_memory=None,
                  request_cpu=None, limit_memory=None, limit_cpu=None, subpath=None,
-                 gcp_service_account_key=None):
+                 gcp_service_account_key=None, node_selectors=None, affinity=None):
         self.image = image
         self.image_pull_policy = image_pull_policy
         self.request_memory = request_memory
         self.request_cpu = request_cpu
         self.limit_memory = limit_memory
         self.limit_cpu = limit_cpu
-        self.gcp_service_account_key = gcp_service_account_key
         self.subpath = subpath
+        self.gcp_service_account_key = gcp_service_account_key
+        self.node_selectors = node_selectors
+        self.affinity = affinity
 
     def __repr__(self):
         return "{}(image={}, image_pull_policy={}, request_memory={}, request_cpu={}, " \
-               "limit_memory={}, limit_cpu={}, subpath={}, gcp_service_account_key={})" \
+               "limit_memory={}, limit_cpu={}, subpath={}, gcp_service_account_key={}, " \
+               "node_selectors={}, affinity={})" \
             .format(KubernetesExecutorConfig.__name__, self.image, self.image_pull_policy,
                     self.request_memory, self.request_cpu, self.limit_memory,
-                    self.limit_cpu, self.subpath, self.gcp_service_account_key)
+                    self.limit_cpu, self.subpath, self.gcp_service_account_key, self.node_selectors,
+                    self.affinity)
 
     @staticmethod
     def from_dict(obj):
@@ -74,8 +78,10 @@ class KubernetesExecutorConfig:
             request_cpu=namespaced.get('request_cpu', None),
             limit_memory=namespaced.get('limit_memory', None),
             limit_cpu=namespaced.get('limit_cpu', None),
-            subpath=namespaced.get('subpath', None),
-            gcp_service_account_key=namespaced.get('gcp_service_account_key', None)
+            subpath=namespaced.get('subpath',None),
+            gcp_service_account_key=namespaced.get('gcp_service_account_key', None),
+            node_selectors=namespaced.get('node_selectors', None),
+            affinity=namespaced.get('affinity', None)
         )
 
     def as_dict(self):
@@ -86,8 +92,10 @@ class KubernetesExecutorConfig:
             'request_cpu': self.request_cpu,
             'limit_memory': self.limit_memory,
             'limit_cpu': self.limit_cpu,
-            'subpath':self.subpath,
-            'gcp_service_account_key': self.gcp_service_account_key
+            'subpath': self.subpath,
+            'gcp_service_account_key': self.gcp_service_account_key,
+            'node_selectors': self.node_selectors,
+            'affinity': self.affinity
         }
 
 
@@ -111,6 +119,7 @@ class KubeConfig:
         self.kube_image_pull_policy = configuration.get(
             self.kubernetes_section, "worker_container_image_pull_policy"
         )
+        self.kube_node_selectors = configuration_dict.get('kubernetes_node_selectors', {})
         self.delete_worker_pods = conf.getboolean(
             self.kubernetes_section, 'delete_worker_pods')
 
@@ -320,7 +329,7 @@ class AirflowKubernetesScheduler(LoggingMixin):
         """
         self.log.info('Kubernetes job is %s', str(next_job))
         key, command, kube_executor_config = next_job
-        dag_id, task_id, execution_date = key
+        dag_id, task_id, execution_date, try_number = key
         self.log.debug("Kubernetes running for command %s", command)
         self.log.debug("Kubernetes launching image %s", self.kube_config.kube_image)
         pod = self.worker_configuration.make_pod(
@@ -441,7 +450,8 @@ class AirflowKubernetesScheduler(LoggingMixin):
         try:
             return (
                 labels['dag_id'], labels['task_id'],
-                self._label_safe_datestring_to_datetime(labels['execution_date']))
+                self._label_safe_datestring_to_datetime(labels['execution_date']),
+                labels['try_number'])
         except Exception as e:
             self.log.warn(
                 'Error while converting labels to key; labels: %s; exception: %s',
@@ -600,7 +610,7 @@ class KubernetesExecutor(BaseExecutor, LoggingMixin):
                 self.log.debug('Could not find key: %s', str(key))
                 pass
         self.event_buffer[key] = state
-        (dag_id, task_id, ex_time) = key
+        (dag_id, task_id, ex_time, try_number) = key
         item = self._session.query(TaskInstance).filter_by(
             dag_id=dag_id,
             task_id=task_id,

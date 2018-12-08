@@ -19,7 +19,6 @@
 # under the License.
 
 from __future__ import print_function
-from backports.configparser import NoSectionError
 import logging
 
 import os
@@ -80,6 +79,11 @@ api_client = api_module.Client(api_base_url=conf.get('cli', 'endpoint_url'),
 
 log = LoggingMixin().log
 
+DAGS_FOLDER = settings.DAGS_FOLDER
+
+if "BUILDING_AIRFLOW_DOCS" in os.environ:
+    DAGS_FOLDER = '[AIRFLOW_HOME]/dags'
+
 
 def sigint_handler(sig, frame):
     sys.exit(0)
@@ -133,7 +137,7 @@ def setup_locations(process, pid=None, stdout=None, stderr=None, log=None):
 
 def process_subdir(subdir):
     if subdir:
-        subdir = subdir.replace('DAGS_FOLDER', settings.DAGS_FOLDER)
+        subdir = subdir.replace('DAGS_FOLDER', DAGS_FOLDER)
         subdir = os.path.abspath(os.path.expanduser(subdir))
         return subdir
 
@@ -450,19 +454,7 @@ def run(args, dag=None):
         if os.path.exists(args.cfg_path):
             os.remove(args.cfg_path)
 
-        # Do not log these properties since some may contain passwords.
-        # This may also set default values for database properties like
-        # core.sql_alchemy_pool_size
-        # core.sql_alchemy_pool_recycle
-        for section, config in conf_dict.items():
-            for option, value in config.items():
-                try:
-                    conf.set(section, option, value)
-                except NoSectionError:
-                    log.error('Section {section} Option {option} '
-                              'does not exist in the config!'.format(section=section,
-                                                                     option=option))
-
+        conf.conf.read_dict(conf_dict, source=args.cfg_path)
         settings.configure_vars()
 
     # IMPORTANT, have to use the NullPool, otherwise, each "run" command may leave
@@ -578,6 +570,11 @@ def list_tasks(args, dag=None):
 
 @cli_utils.action_logging
 def test(args, dag=None):
+    # We want log outout from operators etc to show up here. Normally
+    # airflow.task would redirect to a file, but here we want it to propagate
+    # up to the normal airflow handler.
+    logging.getLogger('airflow.task').propagate = True
+
     dag = dag or get_dag(args)
 
     task = dag.get_task(task_id=args.task_id)
@@ -629,7 +626,9 @@ def clear(args):
         only_failed=args.only_failed,
         only_running=args.only_running,
         confirm_prompt=not args.no_confirm,
-        include_subdags=not args.exclude_subdags)
+        include_subdags=not args.exclude_subdags,
+        include_parentdag=not args.exclude_parentdag,
+    )
 
 
 def get_num_ready_workers_running(gunicorn_master_proc):
@@ -783,8 +782,12 @@ def webserver(args):
         print(
             "Starting the web server on port {0} and host {1}.".format(
                 args.port, args.hostname))
-        app = create_app_rbac(conf) if settings.RBAC else create_app(conf)
-        app.run(debug=True, port=args.port, host=args.hostname,
+        if settings.RBAC:
+            app, _ = create_app_rbac(conf, testing=conf.get('core', 'unit_test_mode'))
+        else:
+            app = create_app(conf, testing=conf.get('core', 'unit_test_mode'))
+        app.run(debug=True, use_reloader=False if app.config['TESTING'] else True,
+                port=args.port, host=args.hostname,
                 ssl_context=(ssl_cert, ssl_key) if ssl_cert and ssl_key else None)
     else:
         app = cached_app_rbac(conf) if settings.RBAC else cached_app(conf)
@@ -951,6 +954,11 @@ def worker(args):
     env = os.environ.copy()
     env['AIRFLOW_HOME'] = settings.AIRFLOW_HOME
 
+    if not settings.validate_session():
+        log = LoggingMixin().log
+        log.error("Worker exiting... database connection precheck failed! ")
+        sys.exit(1)
+
     # Celery worker
     from airflow.executors.celery_executor import app as celery_app
     from celery.bin import worker
@@ -962,6 +970,7 @@ def worker(args):
         'queues': args.queues,
         'concurrency': args.concurrency,
         'hostname': args.celery_hostname,
+        'loglevel': conf.get('core', 'LOGGING_LEVEL'),
     }
 
     if args.daemon:
@@ -1305,8 +1314,10 @@ class CLIFactory(object):
             "The regex to filter specific task_ids to backfill (optional)"),
         'subdir': Arg(
             ("-sd", "--subdir"),
-            "File location or directory from which to look for the dag",
-            default=settings.DAGS_FOLDER),
+            "File location or directory from which to look for the dag. "
+            "Defaults to '[AIRFLOW_HOME]/dags' where [AIRFLOW_HOME] is the "
+            "value you set for 'AIRFLOW_HOME' config you set in 'airflow.cfg' ",
+            default=DAGS_FOLDER),
         'start_date': Arg(
             ("-s", "--start_date"), "Override start_date YYYY-MM-DD",
             type=parsedate),
@@ -1408,6 +1419,10 @@ class CLIFactory(object):
         'exclude_subdags': Arg(
             ("-x", "--exclude_subdags"),
             "Exclude subdags", "store_true"),
+        'exclude_parentdag': Arg(
+            ("-xp", "--exclude_parentdag"),
+            "Exclude ParentDAGS if the task cleared is a part of a SubDAG",
+            "store_true"),
         'dag_regex': Arg(
             ("-dx", "--dag_regex"),
             "Search dag_id as regex instead of exact string", "store_true"),
@@ -1706,7 +1721,7 @@ class CLIFactory(object):
                     "If reset_dag_run option is used,"
                     " backfill will first prompt users whether airflow "
                     "should clear all the previous dag_run and task_instances "
-                    "within the backfill date range."
+                    "within the backfill date range. "
                     "If rerun_failed_tasks is used, backfill "
                     "will auto re-run the previous failed task instances"
                     " within the backfill date range.",
@@ -1727,7 +1742,7 @@ class CLIFactory(object):
             'args': (
                 'dag_id', 'task_regex', 'start_date', 'end_date', 'subdir',
                 'upstream', 'downstream', 'no_confirm', 'only_failed',
-                'only_running', 'exclude_subdags', 'dag_regex'),
+                'only_running', 'exclude_subdags', 'exclude_parentdag', 'dag_regex'),
         }, {
             'func': pause,
             'help': "Pause a DAG",

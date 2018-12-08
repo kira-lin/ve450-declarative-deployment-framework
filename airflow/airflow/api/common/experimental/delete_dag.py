@@ -21,7 +21,7 @@ from sqlalchemy import or_
 
 from airflow import models, settings
 from airflow.exceptions import DagNotFound, DagFileExists
-
+import os
 
 def delete_dag(dag_id):
     session = settings.Session()
@@ -33,8 +33,12 @@ def delete_dag(dag_id):
 
     dagbag = models.DagBag()
     if dag_id in dagbag.dags:
-        raise DagFileExists("Dag id {} is still in DagBag. "
-                            "Remove the DAG file first.".format(dag_id))
+        # raise DagFileExists("Dag id {} is still in DagBag. "
+        #                     "Remove the DAG file first.".format(dag_id))
+        try:
+            os.remove(dagbag.dags[dag_id].full_filepath)
+        except Exception as e:
+            raise e
 
     count = 0
 

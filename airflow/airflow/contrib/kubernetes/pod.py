@@ -62,7 +62,6 @@ class Pod:
             image,
             envs,
             cmds,
-            ports=None,
             args=None,
             secrets=None,
             labels=None,
@@ -78,12 +77,13 @@ class Pod:
             service_account_name=None,
             resources=None,
             annotations=None,
-            affinity=None
+            affinity=None,
+            hostnetwork=False,
+            tolerations=None,
     ):
         self.image = image
         self.envs = envs or {}
         self.cmds = cmds
-        self.ports = ports or {}
         self.args = args or []
         self.secrets = secrets or []
         self.result = result
@@ -91,7 +91,7 @@ class Pod:
         self.name = name
         self.volumes = volumes or []
         self.volume_mounts = volume_mounts or []
-        self.node_selectors = node_selectors or []
+        self.node_selectors = node_selectors or {}
         self.namespace = namespace
         self.image_pull_policy = image_pull_policy
         self.image_pull_secrets = image_pull_secrets
@@ -100,3 +100,5 @@ class Pod:
         self.resources = resources or Resources()
         self.annotations = annotations or {}
         self.affinity = affinity or {}
+        self.hostnetwork = hostnetwork or False
+        self.tolerations = tolerations or []

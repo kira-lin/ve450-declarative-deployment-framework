@@ -133,7 +133,7 @@ class WorkerConfiguration(LoggingMixin):
             ),
             _construct_volume(
                 runtime_volume_name,
-                'test-volume',
+                runtime_volume_name,
                 subpath
             )
         ]
@@ -156,7 +156,7 @@ class WorkerConfiguration(LoggingMixin):
             'mountPath': self.worker_airflow_logs
         }, {
             'name': runtime_volume_name,
-            'mountPath': '/root/airflow/runtime'
+            'mountPath': "/root/airflow/runtime/"
         }]
 
         # Mount the airflow.cfg file via a configmap the user has specified
@@ -216,5 +216,8 @@ class WorkerConfiguration(LoggingMixin):
             volumes=volumes,
             volume_mounts=volume_mounts,
             resources=resources,
-            annotations=annotations
+            annotations=annotations,
+            node_selectors=(kube_executor_config.node_selectors or
+                            self.kube_config.kube_node_selectors),
+            affinity=kube_executor_config.affinity
         )

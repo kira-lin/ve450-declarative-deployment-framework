@@ -43,6 +43,7 @@ class DockerOperator(BaseOperator):
     be provided with the parameter ``docker_conn_id``.
 
     :param image: Docker image from which to create the container.
+        If image tag is omitted, "latest" will be used.
     :type image: str
     :param api_version: Remote API version. Set to ``auto`` to automatically
         detect the server's version.
@@ -53,12 +54,16 @@ class DockerOperator(BaseOperator):
         This value gets multiplied with 1024. See
         https://docs.docker.com/engine/reference/run/#cpu-share-constraint
     :type cpus: float
+    :param dns: Docker custom DNS servers
+    :type dns: list of strings
+    :param dns_search: Docker custom DNS search domain
+    :type dns_search: list of strings
     :param docker_url: URL of the host running the docker daemon.
         Default is unix://var/run/docker.sock
     :type docker_url: str
     :param environment: Environment variables to set in the container. (templated)
     :type environment: dict
-    :param force_pull: Pull the docker image on every run. Default is false.
+    :param force_pull: Pull the docker image on every run. Default is False.
     :type force_pull: bool
     :param mem_limit: Maximum amount of memory the container can use.
         Either a float value, which represents the limit in bytes,
@@ -99,6 +104,9 @@ class DockerOperator(BaseOperator):
     :type xcom_all: bool
     :param docker_conn_id: ID of the Airflow connection to use
     :type docker_conn_id: str
+    :param shm_size: Size of ``/dev/shm`` in bytes. The size must be
+        greater than 0. If omitted uses system default.
+    :type shm_size: int
     """
     template_fields = ('command', 'environment',)
     template_ext = ('.sh', '.bash',)
@@ -127,6 +135,9 @@ class DockerOperator(BaseOperator):
             xcom_push=False,
             xcom_all=False,
             docker_conn_id=None,
+            dns=None,
+            dns_search=None,
+            shm_size=None,
             *args,
             **kwargs):
 
@@ -134,6 +145,8 @@ class DockerOperator(BaseOperator):
         self.api_version = api_version
         self.command = command
         self.cpus = cpus
+        self.dns = dns
+        self.dns_search = dns_search
         self.docker_url = docker_url
         self.environment = environment or {}
         self.force_pull = force_pull
@@ -152,7 +165,7 @@ class DockerOperator(BaseOperator):
         self.xcom_push_flag = xcom_push
         self.xcom_all = xcom_all
         self.docker_conn_id = docker_conn_id
-        self.shm_size = kwargs.get('shm_size')
+        self.shm_size = shm_size
 
         self.cli = None
         self.container = None
@@ -179,18 +192,12 @@ class DockerOperator(BaseOperator):
                 tls=tls_config
             )
 
-        if ':' not in self.image:
-            image = self.image + ':latest'
-        else:
-            image = self.image
-
-        if self.force_pull or len(self.cli.images(name=image)) == 0:
-            self.log.info('Pulling docker image %s', image)
-            for l in self.cli.pull(image, stream=True):
-                output = json.loads(l.decode('utf-8'))
-                self.log.info("%s", output['status'])
-
-        cpu_shares = int(round(self.cpus * 1024))
+        if self.force_pull or len(self.cli.images(name=self.image)) == 0:
+            self.log.info('Pulling docker image %s', self.image)
+            for l in self.cli.pull(self.image, stream=True):
+                output = json.loads(l.decode('utf-8').strip())
+                if 'status' in output:
+                    self.log.info("%s", output['status'])
 
         with TemporaryDirectory(prefix='airflowtmp') as host_tmp_dir:
             self.environment['AIRFLOW_TMP_DIR'] = self.tmp_dir
@@ -198,14 +205,16 @@ class DockerOperator(BaseOperator):
 
             self.container = self.cli.create_container(
                 command=self.get_command(),
-                cpu_shares=cpu_shares,
                 environment=self.environment,
                 host_config=self.cli.create_host_config(
                     binds=self.volumes,
                     network_mode=self.network_mode,
-                    shm_size=self.shm_size),
-                image=image,
-                mem_limit=self.mem_limit,
+                    shm_size=self.shm_size,
+                    dns=self.dns,
+                    dns_search=self.dns_search,
+                    cpu_shares=int(round(self.cpus * 1024)),
+                    mem_limit=self.mem_limit),
+                image=self.image,
                 user=self.user,
                 working_dir=self.working_dir
             )
@@ -218,9 +227,9 @@ class DockerOperator(BaseOperator):
                     line = line.decode('utf-8')
                 self.log.info(line)
 
-            exit_code = self.cli.wait(self.container['Id'])
-            if exit_code != 0:
-                raise AirflowException('docker container failed')
+            result = self.cli.wait(self.container['Id'])
+            if result['StatusCode'] != 0:
+                raise AirflowException('docker container failed: ' + repr(result))
 
             if self.xcom_push_flag:
                 return self.cli.logs(container=self.container['Id']) \

@@ -1,3 +1,20 @@
+..  Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+..    http://www.apache.org/licenses/LICENSE-2.0
+
+..  Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
 Integration
 ===========
 
@@ -64,6 +81,15 @@ Your reverse proxy (ex: nginx) should be configured as follow:
           }
       }
 
+To ensure that Airflow generates URLs with the correct scheme when
+running behind a TLS-terminating proxy, you should configure the proxy
+to set the `X-Forwarded-Proto` header, and enable the `ProxyFix`
+middleware in your `airflow.cfg`::
+
+    enable_proxy_fix = True
+
+Note: you should only enable the `ProxyFix` middleware when running
+Airflow behind a trusted proxy (AWS ELB, nginx, etc.).
 
 .. _Azure:
 
@@ -118,9 +144,9 @@ WasbHook
 Azure File Share
 ''''''''''''''''
 
-Cloud variant of a SMB file share. Make sure that a Airflow connection of 
-type `wasb` exists. Authorization can be done by supplying a login (=Storage account name) 
-and password (=Storage account key), or login and SAS token in the extra field 
+Cloud variant of a SMB file share. Make sure that a Airflow connection of
+type `wasb` exists. Authorization can be done by supplying a login (=Storage account name)
+and password (=Storage account key), or login and SAS token in the extra field
 (see connection `wasb_default` for an example).
 
 AzureFileShareHook
@@ -349,6 +375,7 @@ BigQuery Operators
 - :ref:`BigQueryIntervalCheckOperator` : Checks that the values of metrics given as SQL expressions are within a certain tolerance of the ones from days_back before.
 - :ref:`BigQueryCreateEmptyTableOperator` : Creates a new, empty table in the specified BigQuery dataset optionally with schema.
 - :ref:`BigQueryCreateExternalTableOperator` : Creates a new, external table in the dataset with the data in Google Cloud Storage.
+- :ref:`BigQueryDeleteDatasetOperator` : Deletes an existing BigQuery dataset.
 - :ref:`BigQueryOperator` : Executes BigQuery SQL queries in a specific BigQuery database.
 - :ref:`BigQueryToBigQueryOperator` : Copy a BigQuery table to another BigQuery table.
 - :ref:`BigQueryToCloudStorageOperator` : Transfers a BigQuery table to a Google Cloud Storage bucket
@@ -396,6 +423,13 @@ BigQueryCreateExternalTableOperator
 
 .. autoclass:: airflow.contrib.operators.bigquery_operator.BigQueryCreateExternalTableOperator
 
+.. _BigQueryDeleteDatasetOperator:
+
+BigQueryDeleteDatasetOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.bigquery_operator.BigQueryDeleteDatasetOperator
+
 .. _BigQueryOperator:
 
 BigQueryOperator
@@ -429,6 +463,135 @@ BigQueryHook
 """"""""""""
 
 .. autoclass:: airflow.contrib.hooks.bigquery_hook.BigQueryHook
+    :members:
+
+Cloud SQL
+'''''''''
+
+Cloud SQL Operators
+"""""""""""""""""""
+
+- :ref:`CloudSqlInstanceDatabaseDeleteOperator` : deletes a database from a Cloud SQL
+instance.
+- :ref:`CloudSqlInstanceDatabaseCreateOperator` : creates a new database inside a Cloud
+SQL instance.
+- :ref:`CloudSqlInstanceDatabasePatchOperator` : updates a database inside a Cloud
+SQL instance.
+- :ref:`CloudSqlInstanceDeleteOperator` : delete a Cloud SQL instance.
+- :ref:`CloudSqlInstanceCreateOperator` : create a new Cloud SQL instance.
+- :ref:`CloudSqlInstancePatchOperator` : patch a Cloud SQL instance.
+
+.. CloudSqlInstanceDatabaseDeleteOperator:
+
+CloudSqlInstanceDatabaseDeleteOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_sql_operator.CloudSqlInstanceDatabaseDeleteOperator
+
+.. CloudSqlInstanceDatabaseCreateOperator:
+
+CloudSqlInstanceDatabaseCreateOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_sql_operator.CloudSqlInstanceDatabaseCreateOperator
+
+.. CloudSqlInstanceDatabasePatchOperator:
+
+CloudSqlInstanceDatabasePatchOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_sql_operator.CloudSqlInstanceDatabasePatchOperator
+
+.. CloudSqlInstanceDeleteOperator:
+
+CloudSqlInstanceDeleteOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_sql_operator.CloudSqlInstanceDeleteOperator
+
+.. CloudSqlInstanceCreateOperator:
+
+CloudSqlInstanceCreateOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_sql_operator.CloudSqlInstanceCreateOperator
+
+.. CloudSqlInstancePatchOperator:
+
+CloudSqlInstancePatchOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_sql_operator.CloudSqlInstancePatchOperator
+
+Cloud SQL Hook
+""""""""""""""
+
+.. autoclass:: airflow.contrib.hooks.gcp_sql_hook.CloudSqlHook
+    :members:
+
+Compute Engine
+''''''''''''''
+
+Compute Engine Operators
+""""""""""""""""""""""""
+
+- :ref:`GceInstanceStartOperator` : start an existing Google Compute Engine instance.
+- :ref:`GceInstanceStopOperator` : stop an existing Google Compute Engine instance.
+- :ref:`GceSetMachineTypeOperator` : change the machine type for a stopped instance.
+
+.. _GceInstanceStartOperator:
+
+GceInstanceStartOperator
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_compute_operator.GceInstanceStartOperator
+
+.. _GceInstanceStopOperator:
+
+GceInstanceStopOperator
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_compute_operator.GceInstanceStopOperator
+
+.. _GceSetMachineTypeOperator:
+
+GceSetMachineTypeOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_compute_operator.GceSetMachineTypeOperator
+
+
+Cloud Functions
+'''''''''''''''
+
+Cloud Functions Operators
+"""""""""""""""""""""""""
+
+- :ref:`GcfFunctionDeployOperator` : deploy Google Cloud Function to Google Cloud Platform
+- :ref:`GcfFunctionDeleteOperator` : delete Google Cloud Function in Google Cloud Platform
+
+.. autoclass:: airflow.contrib.operators.gcp_operator.GCP
+
+.. _GcfFunctionDeployOperator:
+
+GcfFunctionDeployOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_function_operator.GcfFunctionDeployOperator
+
+
+.. _GcfFunctionDeleteOperator:
+
+GcfFunctionDeleteOperator
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: airflow.contrib.operators.gcp_function_operator.GcfFunctionDeleteOperator
+
+
+Cloud Functions Hook
+""""""""""""""""""""
+
+.. autoclass:: airflow.contrib.hooks.gcp_function_hook.GcfHook
     :members:
 
 

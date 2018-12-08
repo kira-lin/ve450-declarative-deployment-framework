@@ -31,8 +31,6 @@ from airflow import configuration
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.module_loading import import_string
 
-PARALLELISM = configuration.conf.get('core', 'PARALLELISM')
-
 '''
 To start the celery worker, run the command:
 airflow worker
@@ -106,8 +104,8 @@ class CeleryExecutor(BaseExecutor):
                         del self.tasks[key]
                         del self.last_state[key]
                     else:
-                        self.log.info("Unexpected state: %s", task.state)
-                    self.last_state[key] = task.state
+                        self.log.info("Unexpected state: %s", state)
+                        self.last_state[key] = state
             except Exception as e:
                 self.log.error("Error syncing the celery executor, ignoring it:")
                 self.log.exception(e)

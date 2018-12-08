@@ -17,6 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 import sys
+import re
 
 from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator
@@ -33,17 +34,18 @@ class ECSOperator(BaseOperator):
     :type task_definition: str
     :param cluster: the cluster name on EC2 Container Service
     :type cluster: str
-    :param: overrides: the same parameter that boto3 will receive (templated):
-            http://boto3.readthedocs.org/en/latest/reference/services/ecs.html#ECS.Client.run_task
-    :type: overrides: dict
+    :param overrides: the same parameter that boto3 will receive (templated):
+        http://boto3.readthedocs.org/en/latest/reference/services/ecs.html#ECS.Client.run_task
+    :type overrides: dict
     :param aws_conn_id: connection id of AWS credentials / region name. If None,
-            credential boto3 strategy will be used
-            (http://boto3.readthedocs.io/en/latest/guide/configuration.html).
+        credential boto3 strategy will be used
+        (http://boto3.readthedocs.io/en/latest/guide/configuration.html).
     :type aws_conn_id: str
     :param region_name: region name to use in AWS Hook.
         Override the region_name in connection (if provided)
+    :type region_name: str
     :param launch_type: the launch type on which to run your task ('EC2' or 'FARGATE')
-    :type: launch_type: str
+    :type launch_type: str
     """
 
     ui_color = '#f0ede4'
@@ -115,6 +117,15 @@ class ECSOperator(BaseOperator):
             raise AirflowException(response)
 
         for task in response['tasks']:
+            # This is a `stoppedReason` that indicates a task has not
+            # successfully finished, but there is no other indication of failure
+            # in the response.
+            # See, https://docs.aws.amazon.com/AmazonECS/latest/developerguide/stopped-task-errors.html # noqa E501
+            if re.match(r'Host EC2 \(instance .+?\) (stopped|terminated)\.',
+                        task.get('stoppedReason', '')):
+                raise AirflowException(
+                    'The task was stopped because the host instance terminated: {}'.
+                    format(task.get('stoppedReason', '')))
             containers = task['containers']
             for container in containers:
                 if container.get('lastStatus') == 'STOPPED' and \

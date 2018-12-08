@@ -1,6 +1,7 @@
 ID: mnist
 type: dl
 container: dl
+cleanup: false
 job-config:
   serve: true
   model_name: mnist

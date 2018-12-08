@@ -75,6 +75,7 @@ viewer_perms = [
     'can_task_stats',
     'can_code',
     'can_log',
+    'can_get_logs_with_metadata',
     'can_tries',
     'can_graph',
     'can_tree',
@@ -105,6 +106,7 @@ user_perms = [
     'set_running',
     'set_success',
     'clear',
+    'can_clear',
 ]
 
 op_perms = [
@@ -171,7 +173,7 @@ def init_roles(appbuilder):
 
 
 def is_view_only(user, appbuilder):
-    if user.is_anonymous():
+    if user.is_anonymous:
         anonymous_role = appbuilder.sm.auth_role_public
         return anonymous_role == 'Viewer'
 
